@@ -1,3 +1,2 @@
-# Gest-o-de-entregas---Pizzaria
+# GESTÃO DE ENTREGAS PARA PIZZARIA
 
-[Edit in StackBlitz next generation editor ⚡️](https://stackblitz.com/~/github.com/apenask/Gest-o-de-entregas---Pizzaria)
