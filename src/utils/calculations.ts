@@ -18,25 +18,55 @@ export const formatarDuracaoSegundos = (segundos: number): string => {
   return `${minutos.toString().padStart(2, '0')}:${seg.toString().padStart(2, '0')}`;
 };
 
-// Função para formatar duração em formato mais legível (ex: "1h 30min")
+// Função para formatar duração em formato mais legível (ex: "1h 30min 45s")
 export const formatarDuracaoLegivel = (segundos: number): string => {
-  if (!segundos || segundos < 0) return '0min';
+  if (!segundos || segundos < 0) return '0s';
   
   const horas = Math.floor(segundos / 3600);
   const minutos = Math.floor((segundos % 3600) / 60);
+  const seg = segundos % 60;
   
+  // Se tem horas
   if (horas > 0) {
-    if (minutos > 0) {
+    if (minutos > 0 && seg > 0) {
+      return `${horas}h ${minutos}min ${seg}s`;
+    } else if (minutos > 0) {
       return `${horas}h ${minutos}min`;
+    } else if (seg > 0) {
+      return `${horas}h ${seg}s`;
     }
     return `${horas}h`;
   }
   
+  // Se tem minutos
   if (minutos > 0) {
+    if (seg > 0) {
+      return `${minutos}min ${seg}s`;
+    }
     return `${minutos}min`;
   }
   
-  return `${segundos}s`;
+  // Só segundos (para entregas muito rápidas)
+  return `${seg}s`;
+};
+
+// Função alternativa mais compacta para espaços pequenos
+export const formatarDuracaoCompacta = (segundos: number): string => {
+  if (!segundos || segundos < 0) return '0s';
+  
+  const horas = Math.floor(segundos / 3600);
+  const minutos = Math.floor((segundos % 3600) / 60);
+  const seg = segundos % 60;
+  
+  if (horas > 0) {
+    return `${horas}h${minutos > 0 ? ` ${minutos}m` : ''}${seg > 0 && minutos === 0 ? ` ${seg}s` : ''}`;
+  }
+  
+  if (minutos > 0) {
+    return `${minutos}m${seg > 0 ? ` ${seg}s` : ''}`;
+  }
+  
+  return `${seg}s`;
 };
 
 // Outras funções existentes...
