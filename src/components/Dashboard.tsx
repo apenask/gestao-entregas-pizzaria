@@ -27,14 +27,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [modoVisualizacao, setModoVisualizacao] = useState<ModoVisualizacao>('geral');
   const [entregadorAtivoId, setEntregadorAtivoId] = useState<number | null>(null);
   const [entregadorFiltroFinalizadas, setEntregadorFiltroFinalizadas] = useState<number | ''>('');
+  const [horaAtual, setHoraAtual] = useState(new Date());
   
   const { modalState, showConfirm, closeModal } = useModal();
 
-  // Atualizar hora a cada segundo para cronômetros (removido horaAtual)
+  // Atualizar hora a cada segundo para cronômetros
   useEffect(() => {
     const interval = setInterval(() => {
-      // Força re-render a cada segundo para atualizar os timers
-      setModoVisualizacao(prev => prev);
+      setHoraAtual(new Date());
     }, 1000);
 
     return () => clearInterval(interval);
@@ -83,8 +83,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // FUNÇÃO CORRIGIDA PARA O TIMER
   const calcularTempoEmRota = (dataSaida: Date): string => {
-    // Garantir que estamos trabalhando com objetos Date válidos
-    const agora = new Date();
+    // Usar horaAtual que é atualizada a cada segundo
+    const agora = horaAtual;
     const saida = new Date(dataSaida);
     
     // Verificar se as datas são válidas

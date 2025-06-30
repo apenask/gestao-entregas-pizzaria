@@ -16,13 +16,13 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
   onAtualizarStatus
 }) => {
   const { usuario, logout } = useAuth();
+  const [horaAtual, setHoraAtual] = useState(new Date());
   const [entregasSelecionadas, setEntregasSelecionadas] = useState<Set<number>>(new Set());
 
-  // Atualizar a cada segundo para que os timers sejam atualizados
+  // CORRIGIDO: Atualizar hora a cada segundo para os cronômetros funcionarem
   useEffect(() => {
     const interval = setInterval(() => {
-      // Força re-render a cada segundo para atualizar os timers
-      setEntregasSelecionadas(prev => new Set(prev));
+      setHoraAtual(new Date());
     }, 1000);
 
     return () => clearInterval(interval);
@@ -85,10 +85,9 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
     onAtualizarStatus(entregaId, 'Entregue', agora);
   };
 
-  // Calcular tempo em rota (timer crescente)
+  // CORRIGIDO: Calcular tempo em rota usando horaAtual atualizada
   const calcularTempoEmRota = (dataSaida: Date): string => {
-    // Garantir que estamos trabalhando com objetos Date válidos
-    const agora = new Date();
+    const agora = horaAtual;
     const saida = new Date(dataSaida);
     
     // Verificar se as datas são válidas
@@ -120,99 +119,121 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
       .reduce((total, entrega) => total + entrega.valorCorrida, 0);
   };
 
-  const renderEntregaCard = (entrega: Entrega & { cliente?: Cliente }, showSelection = false) => (
-    <div key={entrega.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
-      {/* Header com seleção (se aplicável) */}
-      {showSelection && (
-        <div className="flex items-center gap-3 pb-2 border-b border-gray-700">
-          <button
-            onClick={() => toggleSelecionarEntrega(entrega.id)}
-            className="flex items-center gap-2 text-sm font-medium hover:text-blue-400 transition-colors"
-          >
-            {entregasSelecionadas.has(entrega.id) ? (
-              <CheckSquare size={20} className="text-blue-500" />
-            ) : (
-              <Square size={20} className="text-gray-400" />
-            )}
-            <span className={entregasSelecionadas.has(entrega.id) ? "text-blue-400" : "text-gray-300"}>
-              Selecionar
-            </span>
-          </button>
-        </div>
-      )}
-      
-      {/* Informações da entrega */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Pedido</p>
-          <div className="flex items-center gap-2 mt-1">
-            <Package size={16} className="text-orange-500" />
-            <span className="font-bold text-white">{entrega.numeroPedido}</span>
+  const renderEntregaCard = (entrega: Entrega & { cliente?: Cliente }, showSelection = false) => {
+    const totalACobrar = entrega.valorTotalPedido + entrega.valorCorrida;
+    
+    return (
+      <div key={entrega.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
+        {/* Header com seleção (se aplicável) */}
+        {showSelection && (
+          <div className="flex items-center gap-3 pb-2 border-b border-gray-700">
+            <button
+              onClick={() => toggleSelecionarEntrega(entrega.id)}
+              className="flex items-center gap-2 text-sm font-medium hover:text-blue-400 transition-colors"
+            >
+              {entregasSelecionadas.has(entrega.id) ? (
+                <CheckSquare size={20} className="text-blue-500" />
+              ) : (
+                <Square size={20} className="text-gray-400" />
+              )}
+              <span className={entregasSelecionadas.has(entrega.id) ? "text-blue-400" : "text-gray-300"}>
+                Selecionar
+              </span>
+            </button>
           </div>
-        </div>
+        )}
         
-        <div>
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Valor Corrida</p>
-          <div className="flex items-center gap-2 mt-1">
-            <DollarSign size={16} className="text-green-500" />
-            <span className="font-bold text-green-400">{formatarValor(entrega.valorCorrida)}</span>
+        {/* Informações da entrega */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Pedido</p>
+            <div className="flex items-center gap-2 mt-1">
+              <Package size={16} className="text-orange-500" />
+              <span className="font-bold text-white">{entrega.numeroPedido}</span>
+            </div>
+          </div>
+          
+          <div>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Valor Corrida</p>
+            <div className="flex items-center gap-2 mt-1">
+              <DollarSign size={16} className="text-green-500" />
+              <span className="font-bold text-green-400">{formatarValor(entrega.valorCorrida)}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Cliente */}
-      <div>
-        <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Cliente</p>
-        <div className="flex items-center gap-2 mt-1">
-          <User size={16} className="text-blue-500" />
-          <span className="font-medium text-white">{entrega.cliente?.nome}</span>
+        {/* NOVO: Seção de valores */}
+        <div className="bg-gray-900/50 border border-gray-600 rounded-lg p-3">
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <p className="text-xs text-gray-400">Pedido</p>
+              <p className="font-semibold text-white">{formatarValor(entrega.valorTotalPedido)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Corrida</p>
+              <p className="font-semibold text-red-400">{formatarValor(entrega.valorCorrida)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Total</p>
+              <p className="font-bold text-green-400">{formatarValor(totalACobrar)}</p>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2 mt-1">
-          <MapPin size={16} className="text-red-500" />
-          <span className="text-gray-300 text-sm">
-            {entrega.cliente?.ruaNumero}, {entrega.cliente?.bairro}
-          </span>
-        </div>
-        {entrega.cliente?.telefone && (
+
+        {/* Cliente */}
+        <div>
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Cliente</p>
           <div className="flex items-center gap-2 mt-1">
-            <Phone size={16} className="text-purple-500" />
-            <span className="text-gray-300 text-sm">{entrega.cliente.telefone}</span>
+            <User size={16} className="text-blue-500" />
+            <span className="font-medium text-white">{entrega.cliente?.nome}</span>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <MapPin size={16} className="text-red-500" />
+            <span className="text-gray-300 text-sm">
+              {entrega.cliente?.ruaNumero}, {entrega.cliente?.bairro}
+            </span>
+          </div>
+          {entrega.cliente?.telefone && (
+            <div className="flex items-center gap-2 mt-1">
+              <Phone size={16} className="text-purple-500" />
+              <span className="text-gray-300 text-sm">{entrega.cliente.telefone}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Timer para entregas em rota */}
+        {entrega.status === 'Em Rota' && entrega.dataHoraSaida && (
+          <div className="bg-red-900/20 border border-red-700 rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Timer size={18} className="text-red-500" />
+                <span className="text-red-400 font-medium">Tempo em Rota</span>
+              </div>
+              <span className="text-red-400 font-mono text-lg font-bold">
+                {calcularTempoEmRota(entrega.dataHoraSaida)}
+              </span>
+            </div>
+            <button
+              onClick={() => handleMarcarComoEntregue(entrega.id)}
+              className="w-full mt-3 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+            >
+              ✅ Marcar como Entregue
+            </button>
+          </div>
+        )}
+
+        {/* Horário para entregas aguardando */}
+        {entrega.status === 'Aguardando' && (
+          <div className="flex items-center gap-2">
+            <Clock size={16} className="text-gray-400" />
+            <span className="text-gray-300 text-sm">
+              Criado às {formatarHora(entrega.dataHora)}
+            </span>
           </div>
         )}
       </div>
-
-      {/* Timer para entregas em rota */}
-      {entrega.status === 'Em Rota' && entrega.dataHoraSaida && (
-        <div className="bg-red-900/20 border border-red-700 rounded-lg p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Timer size={18} className="text-red-500" />
-              <span className="text-red-400 font-medium">Tempo em Rota</span>
-            </div>
-            <span className="text-red-400 font-mono text-lg font-bold">
-              {calcularTempoEmRota(entrega.dataHoraSaida)}
-            </span>
-          </div>
-          <button
-            onClick={() => handleMarcarComoEntregue(entrega.id)}
-            className="w-full mt-3 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
-          >
-            ✅ Marcar como Entregue
-          </button>
-        </div>
-      )}
-
-      {/* Horário para entregas aguardando */}
-      {entrega.status === 'Aguardando' && (
-        <div className="flex items-center gap-2">
-          <Clock size={16} className="text-gray-400" />
-          <span className="text-gray-300 text-sm">
-            Criado às {formatarHora(entrega.dataHora)}
-          </span>
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 p-6">
