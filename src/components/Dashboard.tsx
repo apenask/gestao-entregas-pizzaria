@@ -350,7 +350,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* Coluna com duração da entrega - MELHORADA */}
+              {/* Coluna com duração da entrega - CORRIGIDA */}
               <div className="text-center">
                 <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
                   Tempo de Entrega
@@ -358,19 +358,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="flex items-center justify-center gap-2">
                   <Stopwatch size={16} className={isEntregue ? "text-orange-500" : "text-gray-500"} />
                   <span className={`font-medium ${isEntregue ? "text-orange-400" : "text-gray-500"}`}>
-                    {isEntregue && entrega.duracaoEntrega ? (
-                      <span title={`${entrega.duracaoEntrega} segundos`}>
-                        {formatarDuracaoLegivel(entrega.duracaoEntrega)}
-                      </span>
-                    ) : 'N/A'}
+                    {isEntregue && entrega.duracaoEntrega && entrega.duracaoEntrega > 0 ? (
+                      formatarDuracaoLegivel(entrega.duracaoEntrega)
+                    ) : (
+                      isEntregue ? 'Sem dados' : 'N/A'
+                    )}
                   </span>
                 </div>
-                {/* Mostrar segundos totais em texto pequeno para referência */}
-                {isEntregue && entrega.duracaoEntrega && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    ({entrega.duracaoEntrega}s total)
-                  </p>
-                )}
               </div>
             </div>
             

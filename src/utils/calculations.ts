@@ -20,34 +20,41 @@ export const formatarDuracaoSegundos = (segundos: number): string => {
 
 // Função para formatar duração em formato mais legível (ex: "1h 30min 45s")
 export const formatarDuracaoLegivel = (segundos: number): string => {
-  if (!segundos || segundos < 0) return '0s';
+  console.log('🔧 formatarDuracaoLegivel recebeu:', segundos, typeof segundos);
   
-  const horas = Math.floor(segundos / 3600);
-  const minutos = Math.floor((segundos % 3600) / 60);
-  const seg = segundos % 60;
+  // Garantir que é um número válido
+  const seg = Math.abs(Math.floor(Number(segundos) || 0));
+  
+  if (seg === 0) return '0s';
+  
+  const horas = Math.floor(seg / 3600);
+  const minutos = Math.floor((seg % 3600) / 60);
+  const segundosRestantes = seg % 60;
+  
+  console.log('🔧 Calculado:', { horas, minutos, segundosRestantes, totalSegundos: seg });
   
   // Se tem horas
   if (horas > 0) {
-    if (minutos > 0 && seg > 0) {
-      return `${horas}h ${minutos}min ${seg}s`;
+    if (minutos > 0 && segundosRestantes > 0) {
+      return `${horas}h ${minutos}min ${segundosRestantes}s`;
     } else if (minutos > 0) {
       return `${horas}h ${minutos}min`;
-    } else if (seg > 0) {
-      return `${horas}h ${seg}s`;
+    } else if (segundosRestantes > 0) {
+      return `${horas}h ${segundosRestantes}s`;
     }
     return `${horas}h`;
   }
   
   // Se tem minutos
   if (minutos > 0) {
-    if (seg > 0) {
-      return `${minutos}min ${seg}s`;
+    if (segundosRestantes > 0) {
+      return `${minutos}min ${segundosRestantes}s`;
     }
     return `${minutos}min`;
   }
   
   // Só segundos (para entregas muito rápidas)
-  return `${seg}s`;
+  return `${segundosRestantes}s`;
 };
 
 // Função alternativa mais compacta para espaços pequenos
