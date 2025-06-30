@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Clock, User, MapPin, Hash, DollarSign, Users, List, CheckCircle, Edit2, Trash2, Phone, Timer, Watch as Stopwatch } from 'lucide-react';
 import { Entrega, Entregador, Cliente } from '../types';
-import { formatarHora, formatarValor, formatarDataHora, formatarDuracaoSegundos } from '../utils/calculations';
+import { formatarHora, formatarValor, formatarDataHora, formatarDuracaoLegivel } from '../utils/calculations';
 import { Modal, useModal } from './Modal';
 
 interface DashboardProps {
@@ -19,7 +19,6 @@ type ModoVisualizacao = 'geral' | 'por-entregador' | 'finalizadas';
 export const Dashboard: React.FC<DashboardProps> = ({ 
   entregas, 
   entregadores,
-  clientes,
   onNovaEntrega, 
   onAtualizarStatus,
   onEditarEntrega,
@@ -28,14 +27,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [modoVisualizacao, setModoVisualizacao] = useState<ModoVisualizacao>('geral');
   const [entregadorAtivoId, setEntregadorAtivoId] = useState<number | null>(null);
   const [entregadorFiltroFinalizadas, setEntregadorFiltroFinalizadas] = useState<number | ''>('');
-  const [horaAtual, setHoraAtual] = useState(new Date());
   
   const { modalState, showConfirm, closeModal } = useModal();
 
-  // Atualizar hora a cada segundo para cronômetros
+  // Atualizar hora a cada segundo para cronômetros (removido horaAtual)
   useEffect(() => {
     const interval = setInterval(() => {
-      setHoraAtual(new Date());
+      // Força re-render a cada segundo para atualizar os timers
+      setModoVisualizacao(prev => prev);
     }, 1000);
 
     return () => clearInterval(interval);
@@ -82,16 +81,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   }, [modoVisualizacao, entregadoresAtivos, entregadorAtivoId]);
 
+  // FUNÇÃO CORRIGIDA PARA O TIMER
   const calcularTempoEmRota = (dataSaida: Date): string => {
-    const diffMs = horaAtual.getTime() - dataSaida.getTime();
-    const diffMinutos = Math.floor(diffMs / 60000);
-    const horas = Math.floor(diffMinutos / 60);
-    const minutos = diffMinutos % 60;
+    // Garantir que estamos trabalhando com objetos Date válidos
+    const agora = new Date();
+    const saida = new Date(dataSaida);
+    
+    // Verificar se as datas são válidas
+    if (isNaN(saida.getTime()) || isNaN(agora.getTime())) {
+      return '00:00';
+    }
+    
+    const diffMs = agora.getTime() - saida.getTime();
+    
+    // Se a diferença for negativa, retornar 00:00
+    if (diffMs < 0) {
+      return '00:00';
+    }
+    
+    const totalSegundos = Math.floor(diffMs / 1000);
+    const horas = Math.floor(totalSegundos / 3600);
+    const minutos = Math.floor((totalSegundos % 3600) / 60);
+    const segundos = totalSegundos % 60;
     
     if (horas > 0) {
-      return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
+      return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
     }
-    return `${minutos.toString().padStart(2, '0')}:${Math.floor((diffMs % 60000) / 1000).toString().padStart(2, '0')}`;
+    return `${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
   };
 
   const handleExcluirComConfirmacao = (entrega: Entrega) => {
@@ -266,9 +282,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const totalACobrar = entrega.valorTotalPedido + entrega.valorCorrida;
     const isEntregue = entrega.status === 'Entregue';
     
-    // CORREÇÃO: Usar duração salva em segundos em vez de calcular
-    const tempoEntrega = formatarDuracaoSegundos(entrega.duracaoEntrega);
-    
     return (
       <div
         key={entrega.id}
@@ -338,7 +351,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
 
-              {/* CORREÇÃO: Nova coluna com duração salva em segundos */}
+              {/* Coluna com duração da entrega */}
               <div className="text-center">
                 <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
                   Tempo de Entrega
@@ -346,7 +359,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="flex items-center justify-center gap-2">
                   <Stopwatch size={16} className={isEntregue ? "text-orange-500" : "text-gray-500"} />
                   <span className={`font-medium ${isEntregue ? "text-orange-400" : "text-gray-500"}`}>
-                    {isEntregue ? tempoEntrega : 'N/A'}
+                    {isEntregue && entrega.duracaoEntrega ? formatarDuracaoLegivel(entrega.duracaoEntrega) : 'N/A'}
                   </span>
                 </div>
               </div>

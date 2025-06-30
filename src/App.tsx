@@ -11,7 +11,7 @@ import { Login } from './components/Login';
 import { EntregadorDashboard } from './components/EntregadorDashboard';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TelaAtiva, Entrega, Entregador, Cliente } from './types';
-import { calcularDuracaoSegundos } from './utils/calculations';
+import { calcularDuracaoSegundos, formatarDuracaoLegivel } from './utils/calculations';
 import { entregaService, entregadorService, clienteService } from './services/database';
 
 function AppContent() {
@@ -133,24 +133,39 @@ function AppContent() {
     }
   };
 
-  const handleAtualizarStatus = async (id: number, status: Entrega['status'], dataHoraSaida?: Date, dataHoraEntrega?: Date) => {
+  // FUNÇÃO CORRIGIDA PARA O TIMER
+  const handleAtualizarStatus = async (id: number, status: Entrega['status'], dataHora?: Date) => {
     try {
       const entregaAtual = entregas.find(e => e.id === id);
       if (!entregaAtual) return;
 
+      const agora = dataHora || new Date();
       const updateData: Partial<Entrega> = { status };
       
-      if (dataHoraSaida) {
-        updateData.dataHoraSaida = dataHoraSaida;
-      }
-      
-      if (dataHoraEntrega) {
-        updateData.dataHoraEntrega = dataHoraEntrega;
+      console.log(`🔄 Atualizando status da entrega ${id} para ${status}`, { agora });
+
+      if (status === 'Em Rota') {
+        // Para "Em Rota", salvar data/hora de saída
+        updateData.dataHoraSaida = agora;
+        console.log(`✅ Entrega ${id} saiu às:`, agora.toLocaleTimeString());
         
-        // Calcular duração se temos tanto a saída quanto a entrega
-        if (entregaAtual.dataHoraSaida || dataHoraSaida) {
-          const inicioEntrega = dataHoraSaida || entregaAtual.dataHoraSaida!;
-          updateData.duracaoEntrega = calcularDuracaoSegundos(inicioEntrega, dataHoraEntrega);
+      } else if (status === 'Entregue') {
+        // Para "Entregue", calcular duração e salvar
+        updateData.dataHoraEntrega = agora;
+        
+        const dataHoraSaida = entregaAtual.dataHoraSaida;
+        if (dataHoraSaida) {
+          const duracaoSegundos = calcularDuracaoSegundos(dataHoraSaida, agora);
+          updateData.duracaoEntrega = duracaoSegundos;
+          
+          console.log(`✅ Entrega ${id} finalizada:`, {
+            saida: dataHoraSaida.toLocaleTimeString(),
+            chegada: agora.toLocaleTimeString(),
+            duracaoSegundos: duracaoSegundos,
+            duracaoFormatada: formatarDuracaoLegivel(duracaoSegundos)
+          });
+        } else {
+          console.warn(`⚠️ Entrega ${id} não tem data de saída definida!`);
         }
       }
 

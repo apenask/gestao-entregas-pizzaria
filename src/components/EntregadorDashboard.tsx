@@ -16,13 +16,13 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
   onAtualizarStatus
 }) => {
   const { usuario, logout } = useAuth();
-  const [horaAtual, setHoraAtual] = useState(new Date());
   const [entregasSelecionadas, setEntregasSelecionadas] = useState<Set<number>>(new Set());
 
-  // Atualizar hora a cada segundo para cronômetros
+  // Atualizar a cada segundo para que os timers sejam atualizados
   useEffect(() => {
     const interval = setInterval(() => {
-      setHoraAtual(new Date());
+      // Força re-render a cada segundo para atualizar os timers
+      setEntregasSelecionadas(prev => new Set(prev));
     }, 1000);
 
     return () => clearInterval(interval);
@@ -64,6 +64,7 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
   const handleSairComSelecionadas = () => {
     const agora = new Date();
     entregasSelecionadas.forEach(entregaId => {
+      console.log(`🚚 Saindo para entrega ${entregaId} às:`, agora.toLocaleTimeString());
       onAtualizarStatus(entregaId, 'Em Rota', agora);
     });
     setEntregasSelecionadas(new Set());
@@ -72,6 +73,7 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
   const handleSairComTodas = () => {
     const agora = new Date();
     entregasAguardando.forEach(entrega => {
+      console.log(`🚚 Saindo para entrega ${entrega.id} às:`, agora.toLocaleTimeString());
       onAtualizarStatus(entrega.id, 'Em Rota', agora);
     });
     setEntregasSelecionadas(new Set());
@@ -79,12 +81,28 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
 
   const handleMarcarComoEntregue = (entregaId: number) => {
     const agora = new Date();
+    console.log(`✅ Finalizando entrega ${entregaId} às:`, agora.toLocaleTimeString());
     onAtualizarStatus(entregaId, 'Entregue', agora);
   };
 
   // Calcular tempo em rota (timer crescente)
   const calcularTempoEmRota = (dataSaida: Date): string => {
-    const diffMs = horaAtual.getTime() - dataSaida.getTime();
+    // Garantir que estamos trabalhando com objetos Date válidos
+    const agora = new Date();
+    const saida = new Date(dataSaida);
+    
+    // Verificar se as datas são válidas
+    if (isNaN(saida.getTime()) || isNaN(agora.getTime())) {
+      return '00:00';
+    }
+    
+    const diffMs = agora.getTime() - saida.getTime();
+    
+    // Se a diferença for negativa, retornar 00:00
+    if (diffMs < 0) {
+      return '00:00';
+    }
+    
     const totalSegundos = Math.floor(diffMs / 1000);
     const horas = Math.floor(totalSegundos / 3600);
     const minutos = Math.floor((totalSegundos % 3600) / 60);
