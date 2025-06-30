@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, Search, User, MapPin, DollarSign } from 'lucide-react';
 import { Entrega, Entregador, Cliente } from '../types';
-import { Modal, useModal } from './Modal';
+import { Modal } from './Modal';
+import { useModal } from '../hooks/useModal';
+
+// Tipo para forma de pagamento
+type FormaPagamento = 'Dinheiro' | 'Pix' | 'Cartão de Débito' | 'Cartão de Crédito';
 
 interface EditarEntregaProps {
   entrega: Entrega;
@@ -25,7 +29,7 @@ export const EditarEntrega: React.FC<EditarEntregaProps> = ({
   const [bairro, setBairro] = useState(entrega.cliente?.bairro || '');
   const [telefone, setTelefone] = useState(entrega.cliente?.telefone || '');
   const [entregadorId, setEntregadorId] = useState<number>(entrega.entregadorId);
-  const [formaPagamento, setFormaPagamento] = useState<'Dinheiro' | 'Pix' | 'Cartão de Débito' | 'Cartão de Crédito'>(entrega.formaPagamento);
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>(entrega.formaPagamento);
   const [valorTotalPedido, setValorTotalPedido] = useState<number>(entrega.valorTotalPedido);
   const [valorCorrida, setValorCorrida] = useState<number>(entrega.valorCorrida);
   const [valorCorridaFormatado, setValorCorridaFormatado] = useState('');
@@ -186,24 +190,19 @@ export const EditarEntrega: React.FC<EditarEntregaProps> = ({
       return;
     }
 
-    const entregador = entregadores.find(e => e.id === entregadorId);
-
-    // Criar ou usar cliente existente
-    const clienteParaUsar: Cliente = clienteSelecionado || {
-      id: entrega.clienteId,
-      nome: buscaCliente,
-      ruaNumero,
-      bairro,
-      telefone: telefone || undefined
-    };
-
+    // Criar objeto entrega editada
     const entregaEditada: Entrega = {
       ...entrega,
       numeroPedido,
-      clienteId: clienteParaUsar.id,
-      cliente: clienteParaUsar,
+      clienteId: clienteSelecionado?.id || entrega.clienteId,
+      cliente: {
+        id: clienteSelecionado?.id || entrega.clienteId,
+        nome: buscaCliente,
+        ruaNumero,
+        bairro,
+        telefone: telefone || undefined
+      },
       entregadorId,
-      entregador: entregador?.nome || '',
       formaPagamento,
       valorTotalPedido,
       valorCorrida,
@@ -211,6 +210,7 @@ export const EditarEntrega: React.FC<EditarEntregaProps> = ({
     };
 
     onSalvar(entregaEditada);
+    showAlert('Entrega Atualizada', 'Entrega foi atualizada com sucesso!', 'success');
   };
 
   return (
@@ -230,43 +230,24 @@ export const EditarEntrega: React.FC<EditarEntregaProps> = ({
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Número do Pedido *
-                </label>
-                <input
-                  type="text"
-                  value={numeroPedido}
-                  onChange={(e) => setNumeroPedido(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="Ex: 001, A123, etc."
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Status *
-                </label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  required
-                >
-                  <option value="Aguardando">Aguardando</option>
-                  <option value="Em Rota">Em Rota</option>
-                  <option value="Entregue">Entregue</option>
-                  <option value="Cancelado">Cancelado</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Número do Pedido *
+              </label>
+              <input
+                type="text"
+                value={numeroPedido}
+                onChange={(e) => setNumeroPedido(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                placeholder="Ex: 001, A123, etc."
+                required
+              />
             </div>
 
-            {/* Campo de busca de cliente com autocomplete */}
+            {/* Campo Cliente com Autocomplete */}
             <div className="relative">
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Nome do Cliente *
+                Cliente *
               </label>
               <div className="relative">
                 <input
@@ -275,20 +256,17 @@ export const EditarEntrega: React.FC<EditarEntregaProps> = ({
                   value={buscaCliente}
                   onChange={handleBuscaClienteChange}
                   onKeyDown={handleKeyDown}
-                  className="w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="Digite o nome do cliente"
+                  onFocus={() => buscaCliente.length >= 1 && setMostrarSugestoes(clientesFiltrados.length > 0)}
+                  className={`w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                    clienteSelecionado ? 'bg-green-800 border-green-600' : ''
+                  }`}
+                  placeholder="Digite o nome do cliente..."
                   required
                 />
                 <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                
-                {clienteSelecionado && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <User size={18} className="text-green-400" />
-                  </div>
-                )}
               </div>
 
-              {/* Lista de sugestões */}
+              {/* Sugestões de Clientes */}
               {mostrarSugestoes && (
                 <div 
                   ref={sugestoesRef}
@@ -298,23 +276,17 @@ export const EditarEntrega: React.FC<EditarEntregaProps> = ({
                     <div
                       key={cliente.id}
                       onClick={() => handleSelecionarCliente(cliente)}
-                      className={`px-4 py-3 cursor-pointer transition-colors duration-200 border-b border-gray-600 last:border-b-0 ${
-                        index === indiceSelecionado
-                          ? 'bg-red-600 text-white'
-                          : 'hover:bg-gray-650 text-gray-200'
+                      className={`p-3 cursor-pointer hover:bg-gray-600 border-b border-gray-600 last:border-b-0 ${
+                        index === indiceSelecionado ? 'bg-gray-600' : ''
                       }`}
                     >
-                      <div className="flex items-start gap-3">
-                        <User size={16} className="text-gray-400 mt-1 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{cliente.nome}</p>
-                          <p className="text-sm text-gray-400 truncate">
-                            {cliente.ruaNumero}, {cliente.bairro}
-                          </p>
-                          {cliente.telefone && (
-                            <p className="text-xs text-gray-500">{cliente.telefone}</p>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <User size={14} className="text-gray-400" />
+                        <span className="text-white font-medium">{cliente.nome}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-300">
+                        <MapPin size={12} className="text-gray-400" />
+                        <span>{cliente.ruaNumero}, {cliente.bairro}</span>
                       </div>
                     </div>
                   ))}
@@ -322,24 +294,20 @@ export const EditarEntrega: React.FC<EditarEntregaProps> = ({
               )}
             </div>
 
+            {/* Endereço */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Rua e Número *
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={ruaNumero}
-                    onChange={(e) => setRuaNumero(e.target.value)}
-                    className={`w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                      clienteSelecionado ? 'bg-gray-650' : ''
-                    }`}
-                    placeholder="Ex: Rua das Flores, 123"
-                    required
-                  />
-                  <MapPin size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                </div>
+                <input
+                  type="text"
+                  value={ruaNumero}
+                  onChange={(e) => setRuaNumero(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Ex: Rua A, 123"
+                  required
+                />
               </div>
 
               <div>
@@ -350,9 +318,7 @@ export const EditarEntrega: React.FC<EditarEntregaProps> = ({
                   type="text"
                   value={bairro}
                   onChange={(e) => setBairro(e.target.value)}
-                  className={`w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                    clienteSelecionado ? 'bg-gray-650' : ''
-                  }`}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   placeholder="Ex: Centro"
                   required
                 />
@@ -396,7 +362,7 @@ export const EditarEntrega: React.FC<EditarEntregaProps> = ({
               </label>
               <select
                 value={formaPagamento}
-                onChange={(e) => setFormaPagamento(e.target.value as any)}
+                onChange={(e) => setFormaPagamento(e.target.value as FormaPagamento)}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
               >
                 <option value="Dinheiro">Dinheiro</option>
@@ -433,28 +399,42 @@ export const EditarEntrega: React.FC<EditarEntregaProps> = ({
                     value={valorCorridaFormatado}
                     onChange={handleValorCorridaChange}
                     className="w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    placeholder="Ex: R$ 6,00"
+                    placeholder="R$ 0,00"
                     required
                   />
                   <DollarSign size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Digite qualquer valor (ex: 5, 6.50, 8, 10)
-                </p>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Status
+              </label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as 'Aguardando' | 'Em Rota' | 'Entregue' | 'Cancelado')}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              >
+                <option value="Aguardando">Aguardando</option>
+                <option value="Em Rota">Em Rota</option>
+                <option value="Entregue">Entregue</option>
+                <option value="Cancelado">Cancelado</option>
+              </select>
+            </div>
+
+            {/* Botões */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-6">
               <button
                 type="button"
                 onClick={onFechar}
-                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium transition-colors duration-200"
+                className="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium transition-colors duration-200 text-sm sm:text-base"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium flex items-center justify-center gap-2 transition-colors duration-200"
+                className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium flex items-center justify-center gap-2 transition-colors duration-200 text-sm sm:text-base"
               >
                 <Save size={16} />
                 Salvar Alterações

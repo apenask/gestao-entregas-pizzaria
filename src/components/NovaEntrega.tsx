@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, Search, User, MapPin, DollarSign } from 'lucide-react';
 import { Entregador, Cliente } from '../types';
-import { Modal, useModal } from './Modal';
+import { Modal } from './Modal';
+import { useModal } from '../hooks/useModal';
+
+// Tipo para forma de pagamento
+type FormaPagamento = 'Dinheiro' | 'Pix' | 'Cartão de Débito' | 'Cartão de Crédito';
 
 interface NovaEntregaProps {
   entregadores: Entregador[];
@@ -16,7 +20,7 @@ interface NovaEntregaProps {
       telefone?: string;
     };
     entregadorId: number;
-    formaPagamento: 'Dinheiro' | 'Pix' | 'Cartão de Débito' | 'Cartão de Crédito';
+    formaPagamento: FormaPagamento;
     valorTotalPedido: number;
     valorCorrida: number;
   }) => void;
@@ -36,7 +40,7 @@ export const NovaEntrega: React.FC<NovaEntregaProps> = ({
   const [bairro, setBairro] = useState('');
   const [telefone, setTelefone] = useState('');
   const [entregadorId, setEntregadorId] = useState<number | ''>('');
-  const [formaPagamento, setFormaPagamento] = useState<'Dinheiro' | 'Pix' | 'Cartão de Débito' | 'Cartão de Crédito'>('Dinheiro');
+  const [formaPagamento, setFormaPagamento] = useState<FormaPagamento>('Dinheiro');
   const [valorTotalPedido, setValorTotalPedido] = useState<number | ''>('');
   const [valorCorrida, setValorCorrida] = useState<number | ''>('');
   const [valorCorridaFormatado, setValorCorridaFormatado] = useState('');
@@ -258,10 +262,10 @@ export const NovaEntrega: React.FC<NovaEntregaProps> = ({
               />
             </div>
 
-            {/* Campo de busca de cliente com autocomplete */}
+            {/* Campo Cliente com Autocomplete */}
             <div className="relative">
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Nome do Cliente *
+                Cliente *
               </label>
               <div className="relative">
                 <input
@@ -270,20 +274,17 @@ export const NovaEntrega: React.FC<NovaEntregaProps> = ({
                   value={buscaCliente}
                   onChange={handleBuscaClienteChange}
                   onKeyDown={handleKeyDown}
-                  className="w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="Digite o nome do cliente"
+                  onFocus={() => buscaCliente.length >= 1 && setMostrarSugestoes(clientesFiltrados.length > 0)}
+                  className={`w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                    clienteSelecionado ? 'bg-green-800 border-green-600' : ''
+                  }`}
+                  placeholder="Digite o nome do cliente..."
                   required
                 />
                 <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                
-                {clienteSelecionado && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <User size={18} className="text-green-400" />
-                  </div>
-                )}
               </div>
 
-              {/* Lista de sugestões */}
+              {/* Sugestões de Clientes */}
               {mostrarSugestoes && (
                 <div 
                   ref={sugestoesRef}
@@ -293,58 +294,40 @@ export const NovaEntrega: React.FC<NovaEntregaProps> = ({
                     <div
                       key={cliente.id}
                       onClick={() => handleSelecionarCliente(cliente)}
-                      className={`px-4 py-3 cursor-pointer transition-colors duration-200 border-b border-gray-600 last:border-b-0 ${
-                        index === indiceSelecionado
-                          ? 'bg-red-600 text-white'
-                          : 'hover:bg-gray-650 text-gray-200'
+                      className={`p-3 cursor-pointer hover:bg-gray-600 border-b border-gray-600 last:border-b-0 ${
+                        index === indiceSelecionado ? 'bg-gray-600' : ''
                       }`}
                     >
-                      <div className="flex items-start gap-3">
-                        <User size={16} className="text-gray-400 mt-1 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{cliente.nome}</p>
-                          <p className="text-sm text-gray-400 truncate">
-                            {cliente.ruaNumero}, {cliente.bairro}
-                          </p>
-                          {cliente.telefone && (
-                            <p className="text-xs text-gray-500">{cliente.telefone}</p>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <User size={14} className="text-gray-400" />
+                        <span className="text-white font-medium">{cliente.nome}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-300">
+                        <MapPin size={12} className="text-gray-400" />
+                        <span>{cliente.ruaNumero}, {cliente.bairro}</span>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-
-              {/* Indicador de cliente novo */}
-              {buscaCliente.length >= 1 && !clienteSelecionado && !mostrarSugestoes && (
-                <div className="mt-2 p-2 bg-blue-900 bg-opacity-30 border border-blue-600 rounded-md">
-                  <p className="text-sm text-blue-300 flex items-center gap-2">
-                    <User size={16} />
-                    Cliente novo será cadastrado: <strong>{buscaCliente}</strong>
-                  </p>
-                </div>
-              )}
             </div>
 
+            {/* Endereço */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Rua e Número *
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={ruaNumero}
-                    onChange={(e) => setRuaNumero(e.target.value)}
-                    className={`w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${
-                      clienteSelecionado ? 'bg-gray-650' : ''
-                    }`}
-                    placeholder="Ex: Rua das Flores, 123"
-                    required
-                  />
-                  <MapPin size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                </div>
+                <input
+                  type="text"
+                  value={ruaNumero}
+                  onChange={(e) => setRuaNumero(e.target.value)}
+                  className={`w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${
+                    clienteSelecionado ? 'bg-gray-650' : ''
+                  }`}
+                  placeholder="Ex: Rua A, 123"
+                  required
+                />
               </div>
 
               <div>
@@ -402,7 +385,7 @@ export const NovaEntrega: React.FC<NovaEntregaProps> = ({
               </label>
               <select
                 value={formaPagamento}
-                onChange={(e) => setFormaPagamento(e.target.value as any)}
+                onChange={(e) => setFormaPagamento(e.target.value as FormaPagamento)}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
               >
                 <option value="Dinheiro">Dinheiro</option>
@@ -439,31 +422,29 @@ export const NovaEntrega: React.FC<NovaEntregaProps> = ({
                     value={valorCorridaFormatado}
                     onChange={handleValorCorridaChange}
                     className="w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    placeholder="Ex: R$ 6,00"
+                    placeholder="R$ 0,00"
                     required
                   />
                   <DollarSign size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Digite qualquer valor (ex: 5, 6.50, 8, 10)
-                </p>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
+            {/* Botões */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-6">
               <button
                 type="button"
                 onClick={onFechar}
-                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium transition-colors duration-200"
+                className="flex-1 px-4 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium transition-colors duration-200 text-sm sm:text-base"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium flex items-center justify-center gap-2 transition-colors duration-200"
+                className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium flex items-center justify-center gap-2 transition-colors duration-200 text-sm sm:text-base"
               >
                 <Save size={16} />
-                Salvar Entrega
+                Registrar Entrega
               </button>
             </div>
           </form>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Truck, Clock, MapPin, DollarSign, User, Phone, LogOut, Timer, CheckSquare, Square, Package } from 'lucide-react';
 import { Entrega, Cliente } from '../types';
-import { useAuth } from '../contexts/AuthContext';
+// CORREÇÃO: Importar useAuth do hook, não do contexto
+import { useAuth } from '../hooks/useAuth';
 import { formatarValor, formatarHora } from '../utils/calculations';
 
 interface EntregadorDashboardProps {
@@ -19,12 +20,12 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
   const [horaAtual, setHoraAtual] = useState(new Date());
   const [entregasSelecionadas, setEntregasSelecionadas] = useState<Set<number>>(new Set());
 
-  // CORRIGIDO: useEffect com logs para debug
+  // TIMER CORRIGIDO - Problema 3
   useEffect(() => {
     console.log('🚀 Iniciando timer do EntregadorDashboard');
     const interval = setInterval(() => {
       const agora = new Date();
-      console.log('⏰ Timer tick:', agora.toLocaleTimeString('pt-BR'));
+      console.log('⏰ Timer tick EntregadorDashboard:', agora.toLocaleTimeString('pt-BR'));
       setHoraAtual(agora);
     }, 1000);
 
@@ -91,12 +92,13 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
     onAtualizarStatus(entregaId, 'Entregue', agora);
   };
 
-  // CORRIGIDO: Timer usando horaAtual atualizada
+  // TIMER CORRIGIDO usando horaAtual atualizada - Problema 3
   const calcularTempoEmRota = (dataSaida: Date): string => {
     const agora = horaAtual; // Usar horaAtual que é atualizada a cada segundo
     const saida = new Date(dataSaida);
     
-    console.log('🕐 Calculando tempo:', {
+    // Debug logs
+    console.log('🕐 Calculando tempo EntregadorDashboard:', {
       agora: agora.toLocaleString('pt-BR'),
       saida: saida.toLocaleString('pt-BR'),
       diffMs: agora.getTime() - saida.getTime()
@@ -104,16 +106,16 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
     
     // Verificar se as datas são válidas
     if (isNaN(saida.getTime()) || isNaN(agora.getTime())) {
-      console.log('❌ Datas inválidas');
-      return '00:00';
+      console.log('❌ Datas inválidas EntregadorDashboard');
+      return '00:00:00';
     }
     
     const diffMs = agora.getTime() - saida.getTime();
     
-    // Se a diferença for negativa, retornar 00:00
+    // Se a diferença for negativa, retornar 00:00:00
     if (diffMs < 0) {
-      console.log('❌ Diferença negativa:', diffMs);
-      return '00:00';
+      console.log('❌ Diferença negativa EntregadorDashboard:', diffMs);
+      return '00:00:00';
     }
     
     const totalSegundos = Math.floor(diffMs / 1000);
@@ -121,117 +123,137 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
     const minutos = Math.floor((totalSegundos % 3600) / 60);
     const segundos = totalSegundos % 60;
     
-    const resultado = horas > 0 
-      ? `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`
-      : `${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+    // Sempre mostrar hh:mm:ss
+    const resultado = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
     
-    console.log('⏱️ Timer resultado:', resultado, 'Total segundos:', totalSegundos);
+    console.log('✅ Tempo calculado EntregadorDashboard:', resultado);
     return resultado;
   };
 
+  // Calcular valor total das entregas de hoje
   const calcularValorTotal = () => {
-    return entregasDoEntregador
-      .filter(e => e.status === 'Entregue')
-      .reduce((total, entrega) => total + entrega.valorCorrida, 0);
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    
+    return entregasComClientes
+      .filter(e => {
+        const dataEntrega = new Date(e.dataHora);
+        dataEntrega.setHours(0, 0, 0, 0);
+        return dataEntrega.getTime() === hoje.getTime() && e.status === 'Entregue';
+      })
+      .reduce((total, e) => total + e.valorCorrida, 0);
   };
 
-  const renderEntregaCard = (entrega: Entrega & { cliente?: Cliente }, showSelection = false) => {
-    const totalACobrar = entrega.valorTotalPedido + entrega.valorCorrida;
-    
+  const renderEntregaCard = (entrega: Entrega & { cliente?: Cliente }) => {
+    const { cliente } = entrega;
+
     return (
-      <div key={entrega.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
-        {/* Header com seleção (se aplicável) */}
-        {showSelection && (
-          <div className="flex items-center gap-3 pb-2 border-b border-gray-700">
+      <div key={entrega.id} className="bg-gray-800 rounded-lg p-4 border border-gray-600 hover:border-gray-500 transition-colors">
+        {/* Header do card */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Package size={18} className="text-blue-400" />
+              <span className="font-semibold text-white">#{entrega.numeroPedido}</span>
+            </div>
+            
+            <div className={`px-2 py-1 rounded text-xs font-medium ${
+              entrega.status === 'Aguardando' ? 'bg-yellow-600 text-yellow-100' :
+              entrega.status === 'Em Rota' ? 'bg-blue-600 text-blue-100' :
+              'bg-green-600 text-green-100'
+            }`}>
+              {entrega.status}
+            </div>
+          </div>
+
+          {/* Checkbox para seleção (apenas para aguardando) */}
+          {entrega.status === 'Aguardando' && (
             <button
               onClick={() => toggleSelecionarEntrega(entrega.id)}
-              className="flex items-center gap-2 text-sm font-medium hover:text-blue-400 transition-colors"
+              className="text-gray-400 hover:text-white transition-colors"
             >
-              {entregasSelecionadas.has(entrega.id) ? (
-                <CheckSquare size={20} className="text-blue-500" />
-              ) : (
-                <Square size={20} className="text-gray-400" />
-              )}
-              <span className={entregasSelecionadas.has(entrega.id) ? "text-blue-400" : "text-gray-300"}>
-                Selecionar
-              </span>
+              {entregasSelecionadas.has(entrega.id) ? 
+                <CheckSquare size={20} className="text-blue-400" /> : 
+                <Square size={20} />
+              }
             </button>
-          </div>
-        )}
-        
-        {/* Informações da entrega */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Pedido</p>
-            <div className="flex items-center gap-2 mt-1">
-              <Package size={16} className="text-orange-500" />
-              <span className="font-bold text-white">{entrega.numeroPedido}</span>
-            </div>
+          )}
+        </div>
+
+        {/* Informações do cliente */}
+        <div className="space-y-2 mb-4">
+          <div className="flex items-center gap-2">
+            <User size={16} className="text-gray-400" />
+            <span className="text-white font-medium">{cliente?.nome || 'Cliente não encontrado'}</span>
           </div>
           
-          <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Valor Corrida</p>
-            <div className="flex items-center gap-2 mt-1">
-              <DollarSign size={16} className="text-green-500" />
-              <span className="font-bold text-green-400">{formatarValor(entrega.valorCorrida)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* NOVO: Seção de valores */}
-        <div className="bg-gray-900/50 border border-gray-600 rounded-lg p-3">
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div>
-              <p className="text-xs text-gray-400">Pedido</p>
-              <p className="font-semibold text-white">{formatarValor(entrega.valorTotalPedido)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400">Corrida</p>
-              <p className="font-semibold text-red-400">{formatarValor(entrega.valorCorrida)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400">Total</p>
-              <p className="font-bold text-green-400">{formatarValor(totalACobrar)}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Cliente */}
-        <div>
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Cliente</p>
-          <div className="flex items-center gap-2 mt-1">
-            <User size={16} className="text-blue-500" />
-            <span className="font-medium text-white">{entrega.cliente?.nome}</span>
-          </div>
-          <div className="flex items-center gap-2 mt-1">
-            <MapPin size={16} className="text-red-500" />
+          <div className="flex items-center gap-2">
+            <MapPin size={16} className="text-gray-400" />
             <span className="text-gray-300 text-sm">
-              {entrega.cliente?.ruaNumero}, {entrega.cliente?.bairro}
+              {cliente?.ruaNumero}, {cliente?.bairro}
             </span>
           </div>
-          {entrega.cliente?.telefone && (
-            <div className="flex items-center gap-2 mt-1">
-              <Phone size={16} className="text-purple-500" />
-              <span className="text-gray-300 text-sm">{entrega.cliente.telefone}</span>
+
+          {cliente?.telefone && (
+            <div className="flex items-center gap-2">
+              <Phone size={16} className="text-gray-400" />
+              <span className="text-gray-300 text-sm">{cliente.telefone}</span>
             </div>
           )}
         </div>
 
-        {/* Timer para entregas em rota */}
-        {entrega.status === 'Em Rota' && entrega.dataHoraSaida && (
-          <div className="bg-red-900/20 border border-red-700 rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Timer size={18} className="text-red-500" />
-                <span className="text-red-400 font-medium">Tempo em Rota</span>
-              </div>
-              <span className="text-red-400 font-mono text-lg font-bold">
-                {calcularTempoEmRota(entrega.dataHoraSaida)}
-              </span>
+        {/* Valores */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="bg-gray-700 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <DollarSign size={14} className="text-green-400" />
+              <span className="text-gray-400 text-xs">Pedido</span>
             </div>
+            <span className="text-green-300 font-semibold">{formatarValor(entrega.valorTotalPedido)}</span>
+          </div>
+          
+          <div className="bg-gray-700 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <DollarSign size={14} className="text-blue-400" />
+              <span className="text-gray-400 text-xs">Corrida</span>
+            </div>
+            <span className="text-blue-300 font-semibold">{formatarValor(entrega.valorCorrida)}</span>
+          </div>
+        </div>
+
+        {/* Timer para entregas em rota - CORRIGIDO */}
+        {entrega.status === 'Em Rota' && entrega.dataHoraSaida && (
+          <div className="bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg p-3 mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Timer size={16} className="text-yellow-400" />
+              <span className="text-yellow-300 text-sm font-medium">Tempo em Rota</span>
+            </div>
+            <p className="text-yellow-100 text-lg font-mono font-bold">
+              {calcularTempoEmRota(entrega.dataHoraSaida)}
+            </p>
+          </div>
+        )}
+
+        {/* Botões de ação */}
+        {entrega.status === 'Aguardando' && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const agora = new Date();
+                onAtualizarStatus(entrega.id, 'Em Rota', agora);
+              }}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              🚚 Sair para Entrega
+            </button>
+          </div>
+        )}
+
+        {entrega.status === 'Em Rota' && (
+          <div className="flex gap-2">
             <button
               onClick={() => handleMarcarComoEntregue(entrega.id)}
-              className="w-full mt-3 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
             >
               ✅ Marcar como Entregue
             </button>
@@ -240,7 +262,7 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
 
         {/* Horário para entregas aguardando */}
         {entrega.status === 'Aguardando' && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-2">
             <Clock size={16} className="text-gray-400" />
             <span className="text-gray-300 text-sm">
               Criado às {formatarHora(entrega.dataHora)}
@@ -282,77 +304,73 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
         {/* Coluna 1: Entregas Aguardando */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-white">
-              Entregas Aguardando ({entregasAguardando.length})
+            <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+              <Clock size={20} className="text-yellow-500" />
+              Aguardando ({entregasAguardando.length})
             </h2>
+            
+            {entregasAguardando.length > 0 && (
+              <div className="flex gap-2">
+                <button
+                  onClick={entregasSelecionadas.size === entregasAguardando.length ? desselecionarTodas : selecionarTodas}
+                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  {entregasSelecionadas.size === entregasAguardando.length ? 'Desmarcar Todas' : 'Selecionar Todas'}
+                </button>
+              </div>
+            )}
           </div>
 
+          {/* Botões de ação em lote */}
           {entregasAguardando.length > 0 && (
             <div className="mb-4 space-y-2">
-              {/* Botões de seleção */}
-              <div className="flex gap-2">
+              {entregasSelecionadas.size > 0 && (
                 <button
-                  onClick={selecionarTodas}
-                  className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors"
+                  onClick={handleSairComSelecionadas}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                 >
-                  Selecionar Todas
+                  🚚 Sair com Selecionadas ({entregasSelecionadas.size})
                 </button>
-                <button
-                  onClick={desselecionarTodas}
-                  className="text-sm bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded transition-colors"
-                >
-                  Limpar Seleção
-                </button>
-              </div>
-
-              {/* Botões de ação */}
-              <div className="flex gap-2">
-                <button
-                  onClick={handleSairComTodas}
-                  className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
-                >
-                  🚚 Sair com Todas ({entregasAguardando.length})
-                </button>
-                {entregasSelecionadas.size > 0 && (
-                  <button
-                    onClick={handleSairComSelecionadas}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
-                  >
-                    🎯 Sair com Selecionadas ({entregasSelecionadas.size})
-                  </button>
-                )}
-              </div>
+              )}
+              
+              <button
+                onClick={handleSairComTodas}
+                className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                🚛 Sair com Todas ({entregasAguardando.length})
+              </button>
             </div>
           )}
 
-          <div className="space-y-4">
-            {entregasAguardando.length === 0 ? (
-              <div className="text-center py-8">
-                <Package size={48} className="mx-auto text-gray-600 mb-4" />
-                <p className="text-gray-400">Nenhuma entrega aguardando</p>
-              </div>
-            ) : (
-              entregasAguardando.map(entrega => renderEntregaCard(entrega, true))
-            )}
-          </div>
+          {entregasAguardando.length === 0 ? (
+            <div className="bg-gray-800 rounded-lg p-8 border border-gray-600 text-center">
+              <Clock size={48} className="text-gray-500 mx-auto mb-4" />
+              <p className="text-gray-400">Nenhuma entrega aguardando</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {entregasAguardando.map(renderEntregaCard)}
+            </div>
+          )}
         </div>
 
         {/* Coluna 2: Entregas Em Rota */}
         <div>
-          <h2 className="text-xl font-semibold text-white mb-4">
-            Entregas em Rota ({entregasEmRota.length})
+          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+            <Truck size={20} className="text-blue-500" />
+            Em Rota ({entregasEmRota.length})
           </h2>
-          
-          <div className="space-y-4">
-            {entregasEmRota.length === 0 ? (
-              <div className="text-center py-8">
-                <Timer size={48} className="mx-auto text-gray-600 mb-4" />
-                <p className="text-gray-400">Nenhuma entrega em rota</p>
-              </div>
-            ) : (
-              entregasEmRota.map(entrega => renderEntregaCard(entrega, false))
-            )}
-          </div>
+
+          {entregasEmRota.length === 0 ? (
+            <div className="bg-gray-800 rounded-lg p-8 border border-gray-600 text-center">
+              <Truck size={48} className="text-gray-500 mx-auto mb-4" />
+              <p className="text-gray-400">Nenhuma entrega em rota</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {entregasEmRota.map(renderEntregaCard)}
+            </div>
+          )}
         </div>
       </div>
     </div>

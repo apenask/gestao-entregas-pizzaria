@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Users, Plus, Edit2, Trash2, Save, X, UserPlus, User, Mail } from 'lucide-react';
+import { Users, Edit2, Trash2, Save, X, UserPlus, User, Mail } from 'lucide-react';
 import { Entregador } from '../types';
-import { Modal, useModal } from './Modal';
+import { Modal } from './Modal';
+import { useModal } from '../hooks/useModal';
 
 interface EntregadoresProps {
   entregadores: Entregador[];
@@ -162,7 +163,7 @@ export const Entregadores: React.FC<EntregadoresProps> = ({
       <div className="space-y-4 sm:space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Users size={24} sm:size={28} className="text-red-500" />
+            <Users size={28} className="text-red-500" />
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Gerenciar Entregadores</h1>
           </div>
           
@@ -170,7 +171,7 @@ export const Entregadores: React.FC<EntregadoresProps> = ({
             onClick={handleAbrirModalNovo}
             className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors duration-200 shadow-lg text-sm sm:text-base"
           >
-            <UserPlus size={18} sm:size={20} />
+            <UserPlus size={20} />
             <span className="sm:inline">Adicionar Novo Entregador</span>
           </button>
         </div>
@@ -185,48 +186,55 @@ export const Entregadores: React.FC<EntregadoresProps> = ({
 
           {entregadores.length === 0 ? (
             <div className="p-6 sm:p-8 text-center">
-              <Users size={40} sm:size={48} className="mx-auto text-gray-500 mb-4" />
-              <p className="text-gray-400 text-sm sm:text-base">
-                Nenhum entregador cadastrado ainda
+              <Users size={48} className="text-gray-500 mx-auto mb-4" />
+              <p className="text-gray-400 mb-4">
+                Nenhum entregador cadastrado ainda.
               </p>
+              <button
+                onClick={handleAbrirModalNovo}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 mx-auto transition-colors duration-200"
+              >
+                <UserPlus size={18} />
+                Cadastrar Primeiro Entregador
+              </button>
             </div>
           ) : (
             <div className="divide-y divide-gray-700">
               {entregadores.map((entregador) => (
                 <div key={entregador.id} className="p-3 sm:p-4 hover:bg-gray-750 transition-colors duration-200">
-                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <User size={16} className="text-green-500 flex-shrink-0" />
-                        <h4 className="font-medium text-white text-sm sm:text-base">
-                          {entregador.nome}
-                        </h4>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <User size={16} className="text-gray-400 flex-shrink-0" />
+                        <h4 className="font-medium text-white truncate">{entregador.nome}</h4>
                       </div>
-                      <div className="flex items-center gap-2 ml-6">
-                        <Mail size={14} className="text-blue-500 flex-shrink-0" />
-                        <p className="text-xs sm:text-sm text-gray-400">
-                          {entregador.email}
-                        </p>
+                      
+                      <div className="flex items-center gap-2 mb-2">
+                        <Mail size={16} className="text-gray-400 flex-shrink-0" />
+                        <span className="text-gray-300 text-sm truncate">{entregador.email}</span>
                       </div>
-                      <p className="text-xs text-gray-500 ml-6">
+                      
+                      <div className="text-xs text-gray-500">
                         ID: {entregador.id}
-                      </p>
+                      </div>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto lg:min-w-[200px]">
+
+                    <div className="flex gap-2 sm:flex-col lg:flex-row">
                       <button
                         onClick={() => handleAbrirModalEdicao(entregador)}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-xs sm:text-sm"
+                        className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-xs sm:text-sm"
                         title="Editar Entregador"
                       >
-                        <Edit2 size={14} sm:size={16} />
+                        <Edit2 size={16} />
                         <span className="sm:inline">Editar</span>
                       </button>
+                      
                       <button
                         onClick={() => handleRemoverComConfirmacao(entregador)}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-xs sm:text-sm"
+                        className="flex-1 sm:flex-none bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 text-xs sm:text-sm"
                         title="Remover Entregador"
                       >
-                        <Trash2 size={14} sm:size={16} />
+                        <Trash2 size={16} />
                         <span className="sm:inline">Remover</span>
                       </button>
                     </div>
@@ -383,7 +391,7 @@ export const Entregadores: React.FC<EntregadoresProps> = ({
                   <Mail size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Email usado para login no sistema
+                  Altere o email se necessário. O entregador precisará usar o novo email para acessar
                 </p>
               </div>
 
@@ -397,7 +405,7 @@ export const Entregadores: React.FC<EntregadoresProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium flex items-center justify-center gap-2 transition-colors duration-200 text-sm sm:text-base"
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium flex items-center justify-center gap-2 transition-colors duration-200 text-sm sm:text-base"
                 >
                   <Save size={16} />
                   Salvar Alterações

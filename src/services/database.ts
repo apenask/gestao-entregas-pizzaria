@@ -225,6 +225,34 @@ export const entregadorService = {
     }))
   },
 
+  // MÉTODO NOVO NECESSÁRIO - Problema 2
+  async buscarPorEmail(email: string): Promise<Entregador | null> {
+    try {
+      const { data, error } = await supabase
+        .from('entregadores')
+        .select('*')
+        .eq('email', email.toLowerCase())
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Nenhum registro encontrado
+          return null;
+        }
+        throw error;
+      }
+
+      return {
+        id: data.id,
+        nome: data.nome,
+        email: data.email
+      };
+    } catch (error) {
+      console.error('Erro ao buscar entregador por email:', error);
+      return null;
+    }
+  },
+
   async criar(entregador: Omit<Entregador, 'id'>): Promise<Entregador> {
     const { data, error } = await supabase
       .from('entregadores')
@@ -376,6 +404,32 @@ export const usuarioService = {
     }
   },
 
+  async buscarPorToken(token: string): Promise<Usuario | null> {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('*')
+      .eq('token_recuperacao', token)
+      .single()
+    
+    if (error && error.code !== 'PGRST116') throw error
+    
+    if (!data) return null
+    
+    const item = data as UsuarioSupabase;
+    
+    return {
+      id: item.id,
+      email: item.email,
+      senha: item.senha,
+      nomeCompleto: item.nome_completo,
+      cargo: item.cargo as 'gerente' | 'entregador',
+      entregadorId: item.entregador_id,
+      emailVerificado: item.email_verificado,
+      tokenRecuperacao: item.token_recuperacao,
+      tokenExpiracao: item.token_expiracao ? new Date(item.token_expiracao) : undefined
+    }
+  },
+
   async criar(usuario: Omit<Usuario, 'id'>): Promise<Usuario> {
     const { data, error } = await supabase
       .from('usuarios')
@@ -410,8 +464,12 @@ export const usuarioService = {
     const updateData: Record<string, unknown> = {}
     if (usuario.senha) updateData.senha = usuario.senha
     if (usuario.nomeCompleto) updateData.nome_completo = usuario.nomeCompleto
-    if (usuario.tokenRecuperacao !== undefined) updateData.token_recuperacao = usuario.tokenRecuperacao
-    if (usuario.tokenExpiracao !== undefined) updateData.token_expiracao = usuario.tokenExpiracao?.toISOString()
+    if (usuario.tokenRecuperacao !== undefined) {
+      updateData.token_recuperacao = usuario.tokenRecuperacao || null
+    }
+    if (usuario.tokenExpiracao !== undefined) {
+      updateData.token_expiracao = usuario.tokenExpiracao?.toISOString() || null
+    }
     if (usuario.emailVerificado !== undefined) updateData.email_verificado = usuario.emailVerificado
 
     const { data, error } = await supabase

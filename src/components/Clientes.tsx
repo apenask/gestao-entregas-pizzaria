@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Users, Plus, Edit2, Trash2, Save, X, Search, User, MapPin, Phone } from 'lucide-react';
 import { Cliente } from '../types';
-import { Modal, useModal } from './Modal';
+import { Modal } from './Modal';
+import { useModal } from '../hooks/useModal';
 
 interface ClientesProps {
   clientes: Cliente[];

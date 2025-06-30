@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Clock, User, MapPin, Hash, DollarSign, Users, List, CheckCircle, Edit2, Trash2, Phone, Timer, Watch as Stopwatch } from 'lucide-react';
 import { Entrega, Entregador, Cliente } from '../types';
 import { formatarHora, formatarValor, formatarDataHora, formatarDuracaoLegivel } from '../utils/calculations';
-import { Modal, useModal } from './Modal';
+import { Modal } from './Modal';
+import { useModal } from '../hooks/useModal';
 
 interface DashboardProps {
   entregas: Entrega[];
@@ -19,6 +20,7 @@ type ModoVisualizacao = 'geral' | 'por-entregador' | 'finalizadas';
 export const Dashboard: React.FC<DashboardProps> = ({ 
   entregas, 
   entregadores,
+  clientes,
   onNovaEntrega, 
   onAtualizarStatus,
   onEditarEntrega,
@@ -31,13 +33,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
   
   const { modalState, showConfirm, closeModal } = useModal();
 
-  // Atualizar hora a cada segundo para cronômetros
+  // TIMER CORRIGIDO - Problema 3
   useEffect(() => {
+    console.log('🚀 Iniciando timer do Dashboard');
     const interval = setInterval(() => {
-      setHoraAtual(new Date());
+      const agora = new Date();
+      console.log('⏰ Timer tick Dashboard:', agora.toLocaleTimeString('pt-BR'));
+      setHoraAtual(agora);
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      console.log('🛑 Parando timer do Dashboard');
+      clearInterval(interval);
+    };
   }, []);
 
   const entregasACaminho = entregas.filter(e => e.status === 'Aguardando' || e.status === 'Em Rota');
@@ -81,21 +89,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   }, [modoVisualizacao, entregadoresAtivos, entregadorAtivoId]);
 
-  // TIMER CORRIGIDO usando horaAtual atualizada
+  // TIMER CORRIGIDO usando horaAtual atualizada - Problema 3
   const calcularTempoEmRota = (dataSaida: Date): string => {
     const agora = horaAtual; // Usar horaAtual que é atualizada a cada segundo
     const saida = new Date(dataSaida);
     
+    // Debug logs
+    console.log('🕐 Calculando tempo Dashboard:', {
+      agora: agora.toLocaleString('pt-BR'),
+      saida: saida.toLocaleString('pt-BR'),
+      saidaTimestamp: saida.getTime(),
+      agoraTimestamp: agora.getTime()
+    });
+    
     // Verificar se as datas são válidas
     if (isNaN(saida.getTime()) || isNaN(agora.getTime())) {
-      return '00:00';
+      console.log('❌ Datas inválidas no Dashboard');
+      return '00:00:00';
     }
     
     const diffMs = agora.getTime() - saida.getTime();
     
-    // Se a diferença for negativa, retornar 00:00
+    // Se a diferença for negativa, retornar 00:00:00
     if (diffMs < 0) {
-      return '00:00';
+      console.log('❌ Diferença negativa no Dashboard:', diffMs);
+      return '00:00:00';
     }
     
     const totalSegundos = Math.floor(diffMs / 1000);
@@ -103,316 +121,127 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const minutos = Math.floor((totalSegundos % 3600) / 60);
     const segundos = totalSegundos % 60;
     
-    if (horas > 0) {
-      return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
-    }
-    return `${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+    // Sempre mostrar hh:mm:ss
+    const resultado = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+    
+    console.log('✅ Tempo calculado Dashboard:', resultado);
+    return resultado;
   };
 
   const handleExcluirComConfirmacao = (entrega: Entrega) => {
-    const message = `Tem certeza que deseja excluir esta entrega?\n\nPedido: #${entrega.numeroPedido}\nCliente: ${entrega.cliente?.nome}\nEntregador: ${entrega.entregador}\n\nEsta ação não pode ser desfeita.`;
-    
     showConfirm(
       'Confirmar Exclusão',
-      message,
-      () => onExcluirEntrega(entrega.id),
-      {
-        confirmText: 'Excluir',
-        cancelText: 'Cancelar',
-        isDestructive: true
-      }
+      `Tem certeza que deseja excluir a entrega #${entrega.numeroPedido}?`,
+      () => onExcluirEntrega(entrega.id)
     );
   };
 
   const renderEntregaCard = (entrega: Entrega) => {
-    const totalACobrar = entrega.valorTotalPedido + entrega.valorCorrida;
-    
+    const cliente = clientes.find(c => c.id === entrega.clienteId);
+    const entregador = entregadores.find(e => e.id === entrega.entregadorId);
+
     return (
-      <div
-        key={entrega.id}
-        className="bg-gray-750 border border-gray-650 rounded-lg p-4 hover:bg-gray-720 transition-colors duration-200"
-      >
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-          <div className="flex-1 space-y-4">
-            {/* Cabeçalhos das informações */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="text-center">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-                  Pedido
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <Hash size={16} className="text-blue-500 flex-shrink-0" />
-                  <span className="font-bold text-red-400 truncate">
-                    {entrega.numeroPedido}
-                  </span>
-                </div>
+      <div key={entrega.id} className="bg-gray-700 rounded-lg p-4 border border-gray-600 hover:border-gray-500 transition-colors duration-200">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+          {/* Informações principais */}
+          <div className="flex-1 space-y-3">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Hash size={16} className="text-blue-400" />
+                <span className="font-medium text-white">#{entrega.numeroPedido}</span>
               </div>
               
-              <div className="text-center">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-                  Cliente
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <User size={16} className="text-green-500 flex-shrink-0" />
-                  <span className="font-medium text-white truncate">
-                    {entrega.cliente?.nome}
-                  </span>
-                </div>
-              </div>
-              
-              {modoVisualizacao === 'geral' && (
-                <div className="text-center">
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-                    Entregador
-                  </p>
-                  <div className="flex items-center justify-center gap-2">
-                    <MapPin size={16} className="text-purple-500 flex-shrink-0" />
-                    <span className="text-gray-300 truncate">
-                      {entrega.entregador}
-                    </span>
-                  </div>
-                </div>
-              )}
-              
-              <div className="text-center">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-                  {entrega.status === 'Em Rota' && entrega.dataHoraSaida ? 'Tempo em Rota' : 'Horário'}
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  {entrega.status === 'Em Rota' && entrega.dataHoraSaida ? (
-                    <>
-                      <Timer size={16} className="text-red-500 flex-shrink-0" />
-                      <span className="text-red-400 font-mono font-bold">
-                        {calcularTempoEmRota(entrega.dataHoraSaida)}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Clock size={16} className="text-blue-400 flex-shrink-0" />
-                      <span className="text-gray-300">
-                        {formatarHora(entrega.dataHora)}
-                      </span>
-                    </>
-                  )}
-                </div>
+              <div className={`px-2 py-1 rounded text-xs font-medium ${
+                entrega.status === 'Aguardando' ? 'bg-yellow-600 text-yellow-100' :
+                entrega.status === 'Em Rota' ? 'bg-blue-600 text-blue-100' :
+                entrega.status === 'Entregue' ? 'bg-green-600 text-green-100' :
+                'bg-red-600 text-red-100'
+              }`}>
+                {entrega.status}
               </div>
             </div>
-            
-            {/* Status da entrega */}
-            {entrega.status !== 'Entregue' && (
-              <div className="flex justify-center">
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  entrega.status === 'Aguardando' 
-                    ? 'bg-yellow-900 bg-opacity-30 border border-yellow-600 text-yellow-400'
-                    : 'bg-blue-900 bg-opacity-30 border border-blue-600 text-blue-400'
-                }`}>
-                  {entrega.status}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <User size={16} className="text-gray-400" />
+                <span className="text-gray-300 text-sm">{cliente?.nome || 'Cliente não encontrado'}</span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <MapPin size={16} className="text-gray-400" />
+                <span className="text-gray-300 text-sm">{cliente?.ruaNumero}, {cliente?.bairro}</span>
+              </div>
+
+              {cliente?.telefone && (
+                <div className="flex items-center gap-2">
+                  <Phone size={16} className="text-gray-400" />
+                  <span className="text-gray-300 text-sm">{cliente.telefone}</span>
                 </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <User size={16} className="text-gray-400" />
+                <span className="text-gray-300 text-sm">Entregador: {entregador?.nome}</span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <DollarSign size={16} className="text-green-400" />
+                <span className="text-green-300 text-sm">
+                  Pedido: {formatarValor(entrega.valorTotalPedido)}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <DollarSign size={16} className="text-blue-400" />
+                <span className="text-blue-300 text-sm">
+                  Corrida: {formatarValor(entrega.valorCorrida)}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-gray-400" />
+                <span className="text-gray-300 text-sm">
+                  {formatarHora(entrega.dataHora)}
+                </span>
+              </div>
+            </div>
+
+            {/* Timer para entregas em rota - CORRIGIDO */}
+            {entrega.status === 'Em Rota' && entrega.dataHoraSaida && (
+              <div className="flex items-center gap-2 bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg p-2">
+                <Timer size={16} className="text-yellow-400" />
+                <span className="text-yellow-300 text-sm font-mono">
+                  Tempo em rota: {calcularTempoEmRota(entrega.dataHoraSaida)}
+                </span>
               </div>
             )}
-            
-            {/* Endereço e Telefone */}
-            <div className="bg-gray-800 rounded-md p-3">
-              <p className="text-sm text-gray-300">
-                <span className="font-medium text-white">Endereço:</span> {entrega.cliente?.ruaNumero}, {entrega.cliente?.bairro}
-              </p>
-              {entrega.cliente?.telefone && (
-                <p className="text-sm text-gray-400 mt-1 flex items-center gap-2">
-                  <Phone size={14} />
-                  <span className="font-medium text-gray-300">Telefone:</span> {entrega.cliente.telefone}
-                </p>
-              )}
-              <p className="text-sm text-gray-400 mt-1">
-                <span className="font-medium text-gray-300">Pagamento:</span> {entrega.formaPagamento}
-              </p>
-            </div>
 
-            {/* Seção Financeira Destacada */}
-            <div className="bg-gray-800 border border-gray-600 rounded-lg p-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="flex items-center justify-between sm:flex-col sm:items-start">
-                  <span className="text-sm font-medium text-gray-300">Pedido:</span>
-                  <span className="text-sm font-semibold text-white">
-                    {formatarValor(entrega.valorTotalPedido)}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between sm:flex-col sm:items-start">
-                  <span className="text-sm font-medium text-gray-300">Corrida:</span>
-                  <span className="text-sm font-semibold text-red-400">
-                    {formatarValor(entrega.valorCorrida)}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between sm:flex-col sm:items-start border-t sm:border-t-0 sm:border-l border-gray-600 pt-3 sm:pt-0 sm:pl-3">
-                  <span className="text-base font-bold text-white flex items-center gap-1">
-                    <DollarSign size={16} className="text-green-400" />
-                    Total a Cobrar:
-                  </span>
-                  <span className="text-lg font-bold text-green-400">
-                    {formatarValor(totalACobrar)}
-                  </span>
-                </div>
+            {/* Botões de ação de status */}
+            {entrega.status === 'Aguardando' && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => onAtualizarStatus(entrega.id, 'Em Rota')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200"
+                >
+                  🚚 Sair para Entrega
+                </button>
               </div>
-            </div>
+            )}
+
+            {entrega.status === 'Em Rota' && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => onAtualizarStatus(entrega.id, 'Entregue')}
+                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors duration-200"
+                >
+                  ✅ Marcar como Entregue
+                </button>
+              </div>
+            )}
           </div>
-          
-          {/* Botões de ação */}
-          <div className="flex lg:flex-col gap-2 lg:min-w-[120px]">
-            <button
-              onClick={() => onAtualizarStatus(entrega.id, 'Entregue', new Date())}
-              className="flex-1 lg:flex-none bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors duration-200 whitespace-nowrap"
-            >
-              Entregue
-            </button>
-            <button
-              onClick={() => onAtualizarStatus(entrega.id, 'Cancelado')}
-              className="flex-1 lg:flex-none bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors duration-200 whitespace-nowrap"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
-  const renderEntregaFinalizadaCard = (entrega: Entrega) => {
-    const totalACobrar = entrega.valorTotalPedido + entrega.valorCorrida;
-    const isEntregue = entrega.status === 'Entregue';
-    
-    return (
-      <div
-        key={entrega.id}
-        className="bg-gray-750 border border-gray-650 rounded-lg p-4 hover:bg-gray-720 transition-colors duration-200"
-      >
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-          <div className="flex-1 space-y-4">
-            {/* Cabeçalhos das informações */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
-              <div className="text-center">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-                  Pedido
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <Hash size={16} className="text-blue-500 flex-shrink-0" />
-                  <span className="font-bold text-red-400 truncate">
-                    {entrega.numeroPedido}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="text-center">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-                  Cliente
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <User size={16} className="text-green-500 flex-shrink-0" />
-                  <span className="font-medium text-white truncate">
-                    {entrega.cliente?.nome}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="text-center">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-                  Entregador
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <MapPin size={16} className="text-purple-500 flex-shrink-0" />
-                  <span className="text-gray-300 truncate">
-                    {entrega.entregador}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="text-center">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-                  Data e Hora
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <Clock size={16} className="text-blue-400 flex-shrink-0" />
-                  <span className="text-gray-300 text-sm">
-                    {formatarDataHora(entrega.dataHora)}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="text-center">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-                  Status
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <CheckCircle size={16} className={isEntregue ? "text-green-500" : "text-red-500"} />
-                  <span className={`font-medium ${isEntregue ? "text-green-400" : "text-red-400"}`}>
-                    {entrega.status}
-                  </span>
-                </div>
-              </div>
-
-              {/* Tempo de entrega - SIMPLES */}
-              <div className="text-center">
-                <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-                  Tempo de Entrega
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <Stopwatch size={16} className={isEntregue ? "text-orange-500" : "text-gray-500"} />
-                  <span className={`font-medium ${isEntregue ? "text-orange-400" : "text-gray-500"}`}>
-                    {isEntregue && entrega.duracaoEntrega ? 
-                      formatarDuracaoLegivel(entrega.duracaoEntrega) : 
-                      'N/A'
-                    }
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Endereço e Telefone */}
-            <div className="bg-gray-800 rounded-md p-3">
-              <p className="text-sm text-gray-300">
-                <span className="font-medium text-white">Endereço:</span> {entrega.cliente?.ruaNumero}, {entrega.cliente?.bairro}
-              </p>
-              {entrega.cliente?.telefone && (
-                <p className="text-sm text-gray-400 mt-1 flex items-center gap-2">
-                  <Phone size={14} />
-                  <span className="font-medium text-gray-300">Telefone:</span> {entrega.cliente.telefone}
-                </p>
-              )}
-              <p className="text-sm text-gray-400 mt-1">
-                <span className="font-medium text-gray-300">Pagamento:</span> {entrega.formaPagamento}
-              </p>
-            </div>
-
-            {/* Seção Financeira Destacada */}
-            <div className="bg-gray-800 border border-gray-600 rounded-lg p-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="flex items-center justify-between sm:flex-col sm:items-start">
-                  <span className="text-sm font-medium text-gray-300">Pedido:</span>
-                  <span className="text-sm font-semibold text-white">
-                    {formatarValor(entrega.valorTotalPedido)}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between sm:flex-col sm:items-start">
-                  <span className="text-sm font-medium text-gray-300">Corrida:</span>
-                  <span className="text-sm font-semibold text-red-400">
-                    {formatarValor(entrega.valorCorrida)}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between sm:flex-col sm:items-start border-t sm:border-t-0 sm:border-l border-gray-600 pt-3 sm:pt-0 sm:pl-3">
-                  <span className="text-base font-bold text-white flex items-center gap-1">
-                    <DollarSign size={16} className="text-green-400" />
-                    Total Cobrado:
-                  </span>
-                  <span className="text-lg font-bold text-green-400">
-                    {formatarValor(totalACobrar)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
           {/* Botões de ação */}
           <div className="flex lg:flex-col gap-2 lg:min-w-[120px]">
             <button
@@ -484,13 +313,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   className={`px-3 py-2 rounded-md font-medium transition-colors duration-200 flex items-center gap-2 text-sm ${
                     isAtivo
                       ? 'bg-red-600 text-white'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
                   <User size={16} />
-                  <span className="hidden sm:inline">{entregador.nome}</span>
-                  <span className="sm:hidden">{entregador.nome.split(' ')[0]}</span>
-                  <span className="bg-gray-900 text-white text-xs px-2 py-1 rounded-full">
+                  {entregador.nome}
+                  <span className={`px-1.5 py-0.5 rounded-full text-xs ${
+                    isAtivo ? 'bg-red-700' : 'bg-gray-600'
+                  }`}>
                     {qtdEntregas}
                   </span>
                 </button>
@@ -499,16 +329,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* Conteúdo da Aba Ativa */}
+        {/* Conteúdo do Entregador Ativo */}
         <div className="p-4 sm:p-6">
-          <h2 className="text-lg sm:text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <User size={20} className="text-red-500" />
-            Entregas de {entregadorAtivo?.nome} ({entregasDoEntregador.length})
-          </h2>
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <User size={20} className="text-blue-400" />
+            {entregadorAtivo?.nome} ({entregasDoEntregador.length} entregas)
+          </h3>
           
           {entregasDoEntregador.length === 0 ? (
             <p className="text-gray-400 text-center py-8">
-              Nenhuma entrega em andamento para este entregador
+              Nenhuma entrega para este entregador
             </p>
           ) : (
             <div className="space-y-4">
@@ -521,118 +351,199 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const renderEntregasFinalizadas = () => (
-    <div className="bg-gray-800 rounded-lg border border-gray-700">
-      {/* Cabeçalho com filtro */}
-      <div className="p-4 border-b border-gray-700">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h2 className="text-lg sm:text-xl font-semibold text-white flex items-center gap-2">
-            <CheckCircle size={20} className="text-red-500" />
-            Entregas Finalizadas ({entregasFinalizadasFiltradas.length})
-          </h2>
-          
-          {/* Filtro por entregador */}
-          <div className="w-full sm:w-auto">
-            <select
-              value={entregadorFiltroFinalizadas}
-              onChange={(e) => setEntregadorFiltroFinalizadas(e.target.value === '' ? '' : Number(e.target.value))}
-              className="w-full sm:w-auto px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-            >
-              <option value="">Todos os Entregadores</option>
-              {entregadores.map((entregador) => (
-                <option key={entregador.id} value={entregador.id}>
-                  {entregador.nome}
-                </option>
-              ))}
-            </select>
-          </div>
+    <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <h2 className="text-lg sm:text-xl font-semibold text-white flex items-center gap-2">
+          <CheckCircle size={20} className="text-green-500" />
+          Entregas Finalizadas ({entregasFinalizadasFiltradas.length})
+        </h2>
+        
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-300">Filtrar por:</label>
+          <select
+            value={entregadorFiltroFinalizadas}
+            onChange={(e) => setEntregadorFiltroFinalizadas(e.target.value ? Number(e.target.value) : '')}
+            className="bg-gray-700 border border-gray-600 rounded-md px-3 py-1 text-white text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+          >
+            <option value="">Todos os entregadores</option>
+            {entregadores.map(entregador => (
+              <option key={entregador.id} value={entregador.id}>
+                {entregador.nome}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
+      
+      {entregasFinalizadasFiltradas.length === 0 ? (
+        <p className="text-gray-400 text-center py-8">
+          Nenhuma entrega finalizada encontrada
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {entregasFinalizadasFiltradas.map(entrega => {
+            const cliente = clientes.find(c => c.id === entrega.clienteId);
+            const entregador = entregadores.find(e => e.id === entrega.entregadorId);
 
-      {/* Lista de entregas finalizadas */}
-      <div className="p-4 sm:p-6">
-        {entregasFinalizadasFiltradas.length === 0 ? (
-          <p className="text-gray-400 text-center py-8">
-            Nenhuma entrega finalizada encontrada
-          </p>
-        ) : (
-          <div className="space-y-4">
-            {entregasFinalizadasFiltradas.map(renderEntregaFinalizadaCard)}
-          </div>
-        )}
-      </div>
+            return (
+              <div key={entrega.id} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                  <div className="flex-1 space-y-3">
+                    <div className="flex flex-wrap items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Hash size={16} className="text-blue-400" />
+                        <span className="font-medium text-white">#{entrega.numeroPedido}</span>
+                      </div>
+                      
+                      <div className={`px-2 py-1 rounded text-xs font-medium ${
+                        entrega.status === 'Entregue' ? 'bg-green-600 text-green-100' : 'bg-red-600 text-red-100'
+                      }`}>
+                        {entrega.status}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="flex items-center gap-2">
+                        <User size={16} className="text-gray-400" />
+                        <span className="text-gray-300 text-sm">{cliente?.nome}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <User size={16} className="text-gray-400" />
+                        <span className="text-gray-300 text-sm">Entregador: {entregador?.nome}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Clock size={16} className="text-gray-400" />
+                        <span className="text-gray-300 text-sm">
+                          Finalizada: {formatarDataHora(entrega.dataHoraEntrega || entrega.dataHora)}
+                        </span>
+                      </div>
+
+                      {entrega.duracaoEntrega && (
+                        <div className="flex items-center gap-2">
+                          <Stopwatch size={16} className="text-gray-400" />
+                          <span className="text-gray-300 text-sm">
+                            Duração: {formatarDuracaoLegivel(entrega.duracaoEntrega)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <DollarSign size={16} className="text-green-400" />
+                        <span className="text-green-300 text-sm">
+                          Pedido: {formatarValor(entrega.valorTotalPedido)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <DollarSign size={16} className="text-blue-400" />
+                        <span className="text-blue-300 text-sm">
+                          Corrida: {formatarValor(entrega.valorCorrida)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex lg:flex-col gap-2 lg:min-w-[120px]">
+                    <button
+                      onClick={() => onEditarEntrega(entrega)}
+                      className="flex-1 lg:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors duration-200 whitespace-nowrap flex items-center justify-center gap-2"
+                    >
+                      <Edit2 size={16} />
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => handleExcluirComConfirmacao(entrega)}
+                      className="flex-1 lg:flex-none bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded text-sm font-medium transition-colors duration-200 whitespace-nowrap flex items-center justify-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">
-          Painel de Controle de Entregas
-        </h1>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Dashboard</h1>
+          <p className="text-gray-400 mt-1">Gerencie suas entregas em tempo real</p>
+        </div>
+        
         <button
           onClick={onNovaEntrega}
-          className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors duration-200 shadow-lg"
+          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors duration-200 whitespace-nowrap"
         >
           <Plus size={20} />
-          <span className="sm:inline">Registrar Nova Entrega</span>
+          Nova Entrega
         </button>
       </div>
 
-      {/* Botões de Controle de Visualização */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <button
-          onClick={() => setModoVisualizacao('geral')}
-          className={`flex-1 sm:flex-none px-4 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2 ${
-            modoVisualizacao === 'geral'
-              ? 'bg-red-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-          }`}
-        >
-          <List size={18} />
-          Visão Geral
-        </button>
-        <button
-          onClick={() => setModoVisualizacao('por-entregador')}
-          className={`flex-1 sm:flex-none px-4 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2 ${
-            modoVisualizacao === 'por-entregador'
-              ? 'bg-red-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-          }`}
-        >
-          <Users size={18} />
-          Por Entregador
-        </button>
-        <button
-          onClick={() => setModoVisualizacao('finalizadas')}
-          className={`flex-1 sm:flex-none px-4 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center gap-2 ${
-            modoVisualizacao === 'finalizadas'
-              ? 'bg-red-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'
-          }`}
-        >
-          <CheckCircle size={18} />
-          Entregas Finalizadas
-        </button>
+      {/* Navegação */}
+      <div className="border-b border-gray-700">
+        <div className="flex flex-wrap gap-1">
+          <button
+            onClick={() => setModoVisualizacao('geral')}
+            className={`px-4 py-2 rounded-t-lg font-medium transition-colors duration-200 ${
+              modoVisualizacao === 'geral'
+                ? 'bg-red-600 text-white border-b-2 border-red-500'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <List size={16} className="inline mr-2" />
+            Visão Geral
+          </button>
+          
+          <button
+            onClick={() => setModoVisualizacao('por-entregador')}
+            className={`px-4 py-2 rounded-t-lg font-medium transition-colors duration-200 ${
+              modoVisualizacao === 'por-entregador'
+                ? 'bg-red-600 text-white border-b-2 border-red-500'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <Users size={16} className="inline mr-2" />
+            Por Entregador
+          </button>
+          
+          <button
+            onClick={() => setModoVisualizacao('finalizadas')}
+            className={`px-4 py-2 rounded-t-lg font-medium transition-colors duration-200 ${
+              modoVisualizacao === 'finalizadas'
+                ? 'bg-red-600 text-white border-b-2 border-red-500'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800'
+            }`}
+          >
+            <CheckCircle size={16} className="inline mr-2" />
+            Finalizadas
+          </button>
+        </div>
       </div>
 
-      {/* Conteúdo Principal */}
-      <div className="w-full">
-        {modoVisualizacao === 'geral' && renderVisaoGeral()}
-        {modoVisualizacao === 'por-entregador' && renderVisaoPorEntregador()}
-        {modoVisualizacao === 'finalizadas' && renderEntregasFinalizadas()}
-      </div>
+      {/* Conteúdo baseado na visualização */}
+      {modoVisualizacao === 'geral' && renderVisaoGeral()}
+      {modoVisualizacao === 'por-entregador' && renderVisaoPorEntregador()}
+      {modoVisualizacao === 'finalizadas' && renderEntregasFinalizadas()}
 
-      {/* Modal Global */}
+      {/* Modal */}
       <Modal
         isOpen={modalState.isOpen}
-        onClose={closeModal}
+        type={modalState.type}
         title={modalState.title}
         message={modalState.message}
-        type={modalState.type}
         onConfirm={modalState.onConfirm}
-        confirmText={modalState.confirmText}
-        cancelText={modalState.cancelText}
-        isDestructive={modalState.isDestructive}
+        onClose={closeModal}
       />
     </div>
   );

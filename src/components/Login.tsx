@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LogIn, Mail, Lock, AlertCircle, UserPlus, KeyRound } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 type TelaAuth = 'login' | 'criar-conta' | 'recuperar-senha' | 'redefinir-senha';
 
@@ -151,8 +151,6 @@ export const Login: React.FC = () => {
       setTimeout(() => {
         resetarFormulario();
         setTelaAtiva('login');
-        // Limpar URL
-        window.history.replaceState({}, document.title, window.location.pathname);
       }, 2000);
     } else {
       setErro(resultado.mensagem);
@@ -191,6 +189,7 @@ export const Login: React.FC = () => {
                 className="w-full px-3 py-3 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
                 placeholder="Digite seu email"
                 disabled={carregando}
+                required
               />
               <Mail size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             </div>
@@ -208,6 +207,7 @@ export const Login: React.FC = () => {
                 className="w-full px-3 py-3 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
                 placeholder="Digite sua senha"
                 disabled={carregando}
+                required
               />
               <Lock size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             </div>
@@ -403,7 +403,7 @@ export const Login: React.FC = () => {
             }}
             className="w-full text-gray-400 hover:text-white text-sm transition-colors duration-200 pt-4 border-t border-gray-600"
           >
-            Já tem uma conta? Faça login
+            Já tem uma conta? Fazer login
           </button>
         </form>
       </div>
@@ -422,7 +422,7 @@ export const Login: React.FC = () => {
           Recuperar Senha
         </h1>
         <p className="text-sm sm:text-base text-gray-400">
-          Digite seu email para receber o link de recuperação
+          Digite seu email para receber instruções de recuperação
         </p>
       </div>
 
@@ -473,7 +473,7 @@ export const Login: React.FC = () => {
             ) : (
               <>
                 <KeyRound size={18} />
-                Enviar Link de Recuperação
+                Enviar Instruções
               </>
             )}
           </button>
@@ -521,7 +521,7 @@ export const Login: React.FC = () => {
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
                 className="w-full px-3 py-3 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm sm:text-base"
-                placeholder="Digite sua nova senha (mínimo 6 caracteres)"
+                placeholder="Digite sua nova senha"
                 disabled={carregando}
                 required
                 minLength={6}

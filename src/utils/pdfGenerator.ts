@@ -22,6 +22,13 @@ interface DadosRelatorio {
   valorAdicional: number;
 }
 
+// CORREÇÃO: Interface para tipagem correta do jsPDF com autoTable
+interface jsPDFWithAutoTable extends jsPDF {
+  lastAutoTable: {
+    finalY: number;
+  };
+}
+
 export class PDFGenerator {
   private doc: jsPDF;
   private pageWidth: number;
@@ -188,7 +195,8 @@ export class PDFGenerator {
       margin: { left: this.margin, right: this.margin },
     });
     
-    return (this.doc as any).lastAutoTable.finalY + 20;
+    // CORREÇÃO: Usar interface tipada em vez de 'any'
+    return (this.doc as jsPDFWithAutoTable).lastAutoTable.finalY + 20;
   }
 
   private calcularResumoEntregador(entregas: Entrega[], nomeEntregador: string): ResumoEntregador {

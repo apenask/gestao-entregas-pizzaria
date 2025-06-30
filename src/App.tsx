@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Users, BarChart3, UserCheck, Settings } from 'lucide-react';
+import { FileText, Users, BarChart3, UserCheck } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { NovaEntrega } from './components/NovaEntrega';
 import { EditarEntrega } from './components/EditarEntrega';
@@ -9,7 +9,9 @@ import { Clientes } from './components/Clientes';
 import { MeuPerfil } from './components/MeuPerfil';
 import { Login } from './components/Login';
 import { EntregadorDashboard } from './components/EntregadorDashboard';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+// CORREÇÃO: AuthProvider vem do contexto, useAuth vem do hook
+import { AuthProvider } from './contexts/AuthContext';
+import { useAuth } from './hooks/useAuth';
 import { TelaAtiva, Entrega, Entregador, Cliente } from './types';
 import { calcularDuracaoSegundos, formatarDuracaoLegivel } from './utils/calculations';
 import { entregaService, entregadorService, clienteService } from './services/database';
@@ -133,7 +135,7 @@ function AppContent() {
     }
   };
 
-  // FUNÇÃO CORRIGIDA PARA O TIMER
+  // FUNÇÃO CORRIGIDA PARA O TIMER - Problema 3
   const handleAtualizarStatus = async (id: number, status: Entrega['status'], dataHora?: Date) => {
     try {
       const entregaAtual = entregas.find(e => e.id === id);
@@ -300,63 +302,55 @@ function AppContent() {
               onClick={() => setTelaAtiva('dashboard')}
               className={`py-4 px-2 border-b-2 text-sm font-medium transition-colors ${
                 telaAtiva === 'dashboard'
-                  ? 'border-blue-500 text-blue-500'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
+                  ? 'border-red-500 text-red-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
               }`}
             >
-              <div className="flex items-center space-x-2">
-                <Settings size={18} />
-                <span>Dashboard</span>
-              </div>
+              <BarChart3 size={16} className="inline mr-2" />
+              Dashboard
             </button>
-
+            
             <button
               onClick={() => setTelaAtiva('relatorios')}
               className={`py-4 px-2 border-b-2 text-sm font-medium transition-colors ${
                 telaAtiva === 'relatorios'
-                  ? 'border-blue-500 text-blue-500'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
+                  ? 'border-red-500 text-red-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
               }`}
             >
-              <div className="flex items-center space-x-2">
-                <BarChart3 size={18} />
-                <span>Relatórios</span>
-              </div>
+              <FileText size={16} className="inline mr-2" />
+              Relatórios
             </button>
-
+            
             <button
               onClick={() => setTelaAtiva('entregadores')}
               className={`py-4 px-2 border-b-2 text-sm font-medium transition-colors ${
                 telaAtiva === 'entregadores'
-                  ? 'border-blue-500 text-blue-500'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
+                  ? 'border-red-500 text-red-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
               }`}
             >
-              <div className="flex items-center space-x-2">
-                <Users size={18} />
-                <span>Entregadores</span>
-              </div>
+              <Users size={16} className="inline mr-2" />
+              Entregadores
             </button>
-
+            
             <button
               onClick={() => setTelaAtiva('clientes')}
               className={`py-4 px-2 border-b-2 text-sm font-medium transition-colors ${
                 telaAtiva === 'clientes'
-                  ? 'border-blue-500 text-blue-500'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
+                  ? 'border-red-500 text-red-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
               }`}
             >
-              <div className="flex items-center space-x-2">
-                <FileText size={18} />
-                <span>Clientes</span>
-              </div>
+              <Users size={16} className="inline mr-2" />
+              Clientes
             </button>
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
-      <main className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
         {telaAtiva === 'dashboard' && (
           <Dashboard
             entregas={entregasComClientes}
@@ -373,7 +367,6 @@ function AppContent() {
           <Relatorios
             entregas={entregasComClientes}
             entregadores={entregadores}
-            clientes={clientes}
           />
         )}
         
@@ -385,7 +378,7 @@ function AppContent() {
             onRemoverEntregador={handleRemoverEntregador}
           />
         )}
-
+        
         {telaAtiva === 'clientes' && (
           <Clientes
             clientes={clientes}
@@ -396,7 +389,7 @@ function AppContent() {
         )}
       </main>
 
-      {/* Modal Nova Entrega */}
+      {/* Modals */}
       {mostrarNovaEntrega && (
         <NovaEntrega
           entregadores={entregadores}
@@ -406,7 +399,6 @@ function AppContent() {
         />
       )}
 
-      {/* Modal Editar Entrega */}
       {entregaParaEditar && (
         <EditarEntrega
           entrega={entregaParaEditar}
@@ -417,7 +409,6 @@ function AppContent() {
         />
       )}
 
-      {/* Modal Meu Perfil */}
       {mostrarMeuPerfil && (
         <MeuPerfil
           onVoltar={() => setMostrarMeuPerfil(false)}
@@ -428,12 +419,10 @@ function AppContent() {
   );
 }
 
-function App() {
+export default function App() {
   return (
     <AuthProvider>
       <AppContent />
     </AuthProvider>
   );
 }
-
-export default App;

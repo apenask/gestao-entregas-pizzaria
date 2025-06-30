@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { User, Lock, Save, ArrowLeft, Settings, Mail } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { Modal, useModal } from './Modal';
+import { useAuth } from '../hooks/useAuth';
+import { Modal } from './Modal';
+import { useModal } from '../hooks/useModal';
 
 interface MeuPerfilProps {
   onVoltar: () => void;
@@ -88,7 +89,8 @@ export const MeuPerfil: React.FC<MeuPerfilProps> = ({
           </button>
           
           <div className="flex items-center gap-3">
-            <Settings size={24} sm:size={28} className="text-red-500" />
+            {/* CORREÇÃO: Remover sm:size inválido e usar classes CSS responsivas */}
+            <Settings size={24} className="text-red-500 sm:w-7 sm:h-7" />
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">Meu Perfil</h1>
           </div>
         </div>
