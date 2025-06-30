@@ -225,7 +225,6 @@ export const entregadorService = {
     }))
   },
 
-  // MÉTODO NOVO NECESSÁRIO - Problema 2
   async buscarPorEmail(email: string): Promise<Entregador | null> {
     try {
       const { data, error } = await supabase
@@ -236,7 +235,6 @@ export const entregadorService = {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          // Nenhum registro encontrado
           return null;
         }
         throw error;
