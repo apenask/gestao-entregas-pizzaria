@@ -170,13 +170,13 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
                 <p className="text-gray-400 text-sm">{entrega.cliente?.ruaNumero}</p>
                 <p className="text-blue-400">Total: {formatarValor(entrega.valorTotalPedido + entrega.valorCorrida)}</p>
                 
-                {/* TIMER DE TESTE - AGORA COM CONTADOR FUNCIONANDO */}
+                {/* TIMER DE TESTE */}
                 {entrega.dataHoraSaida && (
                   <div className="bg-red-900/20 border border-red-700 rounded-lg p-3 mt-3">
                     <div className="flex items-center justify-between">
                       <span className="text-red-400">Tempo em Rota:</span>
                       <span className="text-red-400 font-mono text-xl font-bold">
-                        {calcularTempoEmRota(entrega.dataHoraSaida)} | Contador: {contador}
+                        {calcularTempoEmRota(entrega.dataHoraSaida)}
                       </span>
                     </div>
                     <button
