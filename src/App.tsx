@@ -134,47 +134,55 @@ function AppContent() {
   };
 
   // FUNÇÃO CORRIGIDA PARA O TIMER
-  const handleAtualizarStatus = async (id: number, status: Entrega['status'], dataHora?: Date) => {
-    try {
-      const entregaAtual = entregas.find(e => e.id === id);
-      if (!entregaAtual) return;
+// SUBSTITUA a função handleAtualizarStatus no App.tsx por esta versão corrigida:
 
-      const agora = dataHora || new Date();
-      const updateData: Partial<Entrega> = { status };
+const handleAtualizarStatus = async (id: number, status: Entrega['status'], dataHora?: Date) => {
+  try {
+    const entregaAtual = entregas.find(e => e.id === id);
+    if (!entregaAtual) return;
+
+    // CORREÇÃO: Usar horário local brasileiro
+    const agora = dataHora || new Date();
+    const horarioLocal = new Date(agora.getTime() - (agora.getTimezoneOffset() * 60000));
+    
+    const updateData: Partial<Entrega> = { status };
+    
+    console.log(`🔄 Atualizando status da entrega ${id} para ${status}`, { 
+      agora: agora.toLocaleString('pt-BR'),
+      horarioLocal: horarioLocal.toLocaleString('pt-BR')
+    });
+
+    if (status === 'Em Rota') {
+      // Para "Em Rota", salvar data/hora de saída
+      updateData.dataHoraSaida = horarioLocal;
+      console.log(`✅ Entrega ${id} saiu às:`, horarioLocal.toLocaleTimeString('pt-BR'));
       
-      console.log(`🔄 Atualizando status da entrega ${id} para ${status}`, { agora });
-
-      if (status === 'Em Rota') {
-        // Para "Em Rota", salvar data/hora de saída
-        updateData.dataHoraSaida = agora;
-        console.log(`✅ Entrega ${id} saiu às:`, agora.toLocaleTimeString());
+    } else if (status === 'Entregue') {
+      // Para "Entregue", calcular duração e salvar
+      updateData.dataHoraEntrega = horarioLocal;
+      
+      const dataHoraSaida = entregaAtual.dataHoraSaida;
+      if (dataHoraSaida) {
+        const duracaoSegundos = calcularDuracaoSegundos(dataHoraSaida, horarioLocal);
+        updateData.duracaoEntrega = duracaoSegundos;
         
-      } else if (status === 'Entregue') {
-        // Para "Entregue", calcular duração e salvar
-        updateData.dataHoraEntrega = agora;
-        
-        const dataHoraSaida = entregaAtual.dataHoraSaida;
-        if (dataHoraSaida) {
-          const duracaoSegundos = calcularDuracaoSegundos(dataHoraSaida, agora);
-          updateData.duracaoEntrega = duracaoSegundos;
-          
-          console.log(`✅ Entrega ${id} finalizada:`, {
-            saida: dataHoraSaida.toLocaleTimeString(),
-            chegada: agora.toLocaleTimeString(),
-            duracaoSegundos: duracaoSegundos,
-            duracaoFormatada: formatarDuracaoLegivel(duracaoSegundos)
-          });
-        } else {
-          console.warn(`⚠️ Entrega ${id} não tem data de saída definida!`);
-        }
+        console.log(`✅ Entrega ${id} finalizada:`, {
+          saida: dataHoraSaida.toLocaleTimeString('pt-BR'),
+          chegada: horarioLocal.toLocaleTimeString('pt-BR'),
+          duracaoSegundos: duracaoSegundos,
+          duracaoFormatada: formatarDuracaoLegivel(duracaoSegundos)
+        });
+      } else {
+        console.warn(`⚠️ Entrega ${id} não tem data de saída definida!`);
       }
-
-      const entregaAtualizada = await entregaService.atualizar(id, updateData);
-      setEntregas(prev => prev.map(entrega => entrega.id === id ? entregaAtualizada : entrega));
-    } catch (error) {
-      console.error('Erro ao atualizar status:', error);
     }
-  };
+
+    const entregaAtualizada = await entregaService.atualizar(id, updateData);
+    setEntregas(prev => prev.map(entrega => entrega.id === id ? entregaAtualizada : entrega));
+  } catch (error) {
+    console.error('Erro ao atualizar status:', error);
+  }
+};
 
   // Função para o componente Entregadores
   const handleAdicionarEntregador = async (nome: string, email: string) => {

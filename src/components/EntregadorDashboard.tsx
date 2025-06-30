@@ -19,13 +19,19 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
   const [horaAtual, setHoraAtual] = useState(new Date());
   const [entregasSelecionadas, setEntregasSelecionadas] = useState<Set<number>>(new Set());
 
-  // CORRIGIDO: Atualizar hora a cada segundo para os cronômetros funcionarem
+  // CORRIGIDO: useEffect com logs para debug
   useEffect(() => {
+    console.log('🚀 Iniciando timer do EntregadorDashboard');
     const interval = setInterval(() => {
-      setHoraAtual(new Date());
+      const agora = new Date();
+      console.log('⏰ Timer tick:', agora.toLocaleTimeString('pt-BR'));
+      setHoraAtual(agora);
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      console.log('🛑 Parando timer do EntregadorDashboard');
+      clearInterval(interval);
+    };
   }, []);
 
   // Filtrar entregas do entregador logado
@@ -85,13 +91,20 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
     onAtualizarStatus(entregaId, 'Entregue', agora);
   };
 
-  // CORRIGIDO: Calcular tempo em rota usando horaAtual atualizada
+  // CORRIGIDO: Timer usando horaAtual atualizada
   const calcularTempoEmRota = (dataSaida: Date): string => {
-    const agora = horaAtual;
+    const agora = horaAtual; // Usar horaAtual que é atualizada a cada segundo
     const saida = new Date(dataSaida);
+    
+    console.log('🕐 Calculando tempo:', {
+      agora: agora.toLocaleString('pt-BR'),
+      saida: saida.toLocaleString('pt-BR'),
+      diffMs: agora.getTime() - saida.getTime()
+    });
     
     // Verificar se as datas são válidas
     if (isNaN(saida.getTime()) || isNaN(agora.getTime())) {
+      console.log('❌ Datas inválidas');
       return '00:00';
     }
     
@@ -99,6 +112,7 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
     
     // Se a diferença for negativa, retornar 00:00
     if (diffMs < 0) {
+      console.log('❌ Diferença negativa:', diffMs);
       return '00:00';
     }
     
@@ -107,10 +121,12 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
     const minutos = Math.floor((totalSegundos % 3600) / 60);
     const segundos = totalSegundos % 60;
     
-    if (horas > 0) {
-      return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
-    }
-    return `${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+    const resultado = horas > 0 
+      ? `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`
+      : `${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
+    
+    console.log('⏱️ Timer resultado:', resultado, 'Total segundos:', totalSegundos);
+    return resultado;
   };
 
   const calcularValorTotal = () => {

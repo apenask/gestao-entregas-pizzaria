@@ -81,10 +81,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   }, [modoVisualizacao, entregadoresAtivos, entregadorAtivoId]);
 
-  // FUNÇÃO CORRIGIDA PARA O TIMER
+  // TIMER CORRIGIDO usando horaAtual atualizada
   const calcularTempoEmRota = (dataSaida: Date): string => {
-    // Usar horaAtual que é atualizada a cada segundo
-    const agora = horaAtual;
+    const agora = horaAtual; // Usar horaAtual que é atualizada a cada segundo
     const saida = new Date(dataSaida);
     
     // Verificar se as datas são válidas
