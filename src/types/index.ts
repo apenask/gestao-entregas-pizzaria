@@ -41,7 +41,8 @@ export interface Entrega {
   duracaoEntrega?: number; // Duração em SEGUNDOS - SALVA PERMANENTEMENTE
 }
 
-export type TelaAtiva = 'dashboard' | 'relatorios' | 'entregadores' | 'clientes';
+// ADICIONADO 'perfil'
+export type TelaAtiva = 'dashboard' | 'relatorios' | 'entregadores' | 'clientes' | 'perfil';
 
 export interface AuthContextType {
   usuario: Usuario | null;

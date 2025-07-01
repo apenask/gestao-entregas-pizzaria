@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Users, BarChart3, UserCheck } from 'lucide-react';
+import { FileText, Users, BarChart3, UserCheck, Settings } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { NovaEntrega } from './components/NovaEntrega';
 import { EditarEntrega } from './components/EditarEntrega';
@@ -9,18 +9,17 @@ import { Clientes } from './components/Clientes';
 import { MeuPerfil } from './components/MeuPerfil';
 import { Login } from './components/Login';
 import { EntregadorDashboard } from './components/EntregadorDashboard';
-// CORREÇÃO: AuthProvider vem do contexto, useAuth vem do hook
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import { TelaAtiva, Entrega, Entregador, Cliente } from './types';
-import { calcularDuracaoSegundos, formatarDuracaoLegivel } from './utils/calculations';
+// AQUI ESTÁ A CORREÇÃO: 'formatarDuracaoLegivel' foi removido
+import { calcularDuracaoSegundos } from './utils/calculations'; 
 import { entregaService, entregadorService, clienteService } from './services/database';
 
 function AppContent() {
-  const { isAuthenticated, isEntregador, logout, usuario } = useAuth();
+  const { isAuthenticated, isGerente, isEntregador, logout, usuario } = useAuth();
   const [telaAtiva, setTelaAtiva] = useState<TelaAtiva>('dashboard');
   const [mostrarNovaEntrega, setMostrarNovaEntrega] = useState(false);
-  const [mostrarMeuPerfil, setMostrarMeuPerfil] = useState(false);
   const [entregaParaEditar, setEntregaParaEditar] = useState<Entrega | null>(null);
   
   // Estados dos dados
@@ -29,7 +28,6 @@ function AppContent() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Carregar dados do Supabase
   useEffect(() => {
     const carregarDados = async () => {
       try {
@@ -57,7 +55,6 @@ function AppContent() {
     }
   }, [isAuthenticated]);
 
-  // Função para enriquecer entregas com dados do cliente
   const entregasComClientes = entregas.map(entrega => ({
     ...entrega,
     cliente: clientes.find(c => c.id === entrega.clienteId)
@@ -80,7 +77,6 @@ function AppContent() {
     try {
       let clienteId = dadosEntrega.clienteId;
       
-      // Se é um cliente novo, criar primeiro
       if (dadosEntrega.clienteNovo) {
         const novoCliente = await clienteService.criar({
           nome: dadosEntrega.clienteNovo.nome,
@@ -135,7 +131,6 @@ function AppContent() {
     }
   };
 
-  // FUNÇÃO CORRIGIDA PARA O TIMER - Problema 3
   const handleAtualizarStatus = async (id: number, status: Entrega['status'], dataHora?: Date) => {
     try {
       const entregaAtual = entregas.find(e => e.id === id);
@@ -144,30 +139,15 @@ function AppContent() {
       const agora = dataHora || new Date();
       const updateData: Partial<Entrega> = { status };
       
-      console.log(`🔄 Atualizando status da entrega ${id} para ${status}`, { agora });
-
       if (status === 'Em Rota') {
-        // Para "Em Rota", salvar data/hora de saída
         updateData.dataHoraSaida = agora;
-        console.log(`✅ Entrega ${id} saiu às:`, agora.toLocaleTimeString());
-        
       } else if (status === 'Entregue') {
-        // Para "Entregue", calcular duração e salvar
         updateData.dataHoraEntrega = agora;
         
         const dataHoraSaida = entregaAtual.dataHoraSaida;
         if (dataHoraSaida) {
           const duracaoSegundos = calcularDuracaoSegundos(dataHoraSaida, agora);
           updateData.duracaoEntrega = duracaoSegundos;
-          
-          console.log(`✅ Entrega ${id} finalizada:`, {
-            saida: dataHoraSaida.toLocaleTimeString(),
-            chegada: agora.toLocaleTimeString(),
-            duracaoSegundos: duracaoSegundos,
-            duracaoFormatada: formatarDuracaoLegivel(duracaoSegundos)
-          });
-        } else {
-          console.warn(`⚠️ Entrega ${id} não tem data de saída definida!`);
         }
       }
 
@@ -178,7 +158,6 @@ function AppContent() {
     }
   };
 
-  // Função para o componente Entregadores
   const handleAdicionarEntregador = async (nome: string, email: string) => {
     try {
       const novoEntregador = await entregadorService.criar({ nome, email });
@@ -188,7 +167,6 @@ function AppContent() {
     }
   };
 
-  // Função para o componente Entregadores
   const handleEditarEntregador = async (id: number, nome: string, email: string) => {
     try {
       const entregadorAtualizado = await entregadorService.atualizar(id, { nome, email });
@@ -207,7 +185,6 @@ function AppContent() {
     }
   };
 
-  // Função para o componente Clientes
   const handleAdicionarCliente = async (cliente: { nome: string; ruaNumero: string; bairro: string; telefone?: string }) => {
     try {
       const novoCliente = await clienteService.criar(cliente);
@@ -217,7 +194,6 @@ function AppContent() {
     }
   };
 
-  // Função para o componente Clientes
   const handleEditarCliente = async (id: number, dadosCliente: { nome: string; ruaNumero: string; bairro: string; telefone?: string }) => {
     try {
       const clienteAtualizado = await clienteService.atualizar(id, dadosCliente);
@@ -236,11 +212,10 @@ function AppContent() {
     }
   };
 
-  // Função para o componente MeuPerfil
   const handleAtualizarPerfil = (email: string, senha: string, nomeCompleto: string) => {
-    // Implementar atualização de perfil se necessário
     console.log('Atualizando perfil:', { email, senha, nomeCompleto });
   };
+
 
   if (!isAuthenticated) {
     return <Login />;
@@ -266,7 +241,6 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -276,11 +250,11 @@ function AppContent() {
 
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => setMostrarMeuPerfil(true)}
+                onClick={() => setTelaAtiva('perfil')}
                 className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
               >
                 <UserCheck size={20} />
-                <span className="hidden sm:inline">{usuario?.nomeCompleto}</span>
+                <span className="hidden sm:inline">{usuario?.nomeCompleto || 'Administrador'}</span>
               </button>
               
               <button
@@ -294,7 +268,6 @@ function AppContent() {
         </div>
       </header>
 
-      {/* Navigation */}
       <nav className="bg-gray-800 border-b border-gray-700">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
@@ -345,11 +318,24 @@ function AppContent() {
               <Users size={16} className="inline mr-2" />
               Clientes
             </button>
+
+            {isGerente && (
+              <button
+                onClick={() => setTelaAtiva('perfil')}
+                className={`py-4 px-2 border-b-2 text-sm font-medium transition-colors ${
+                  telaAtiva === 'perfil'
+                    ? 'border-red-500 text-red-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
+                }`}
+              >
+                <Settings size={16} className="inline mr-2" />
+                Meu Perfil
+              </button>
+            )}
           </div>
         </div>
       </nav>
 
-      {/* Main Content */}
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
         {telaAtiva === 'dashboard' && (
           <Dashboard
@@ -387,9 +373,15 @@ function AppContent() {
             onRemoverCliente={handleRemoverCliente}
           />
         )}
+
+        {telaAtiva === 'perfil' && (
+          <MeuPerfil
+            onVoltar={() => setTelaAtiva('dashboard')}
+            onAtualizarPerfil={handleAtualizarPerfil}
+          />
+        )}
       </main>
 
-      {/* Modals */}
       {mostrarNovaEntrega && (
         <NovaEntrega
           entregadores={entregadores}
@@ -406,13 +398,6 @@ function AppContent() {
           clientes={clientes}
           onSalvar={handleSalvarEdicaoEntrega}
           onFechar={() => setEntregaParaEditar(null)}
-        />
-      )}
-
-      {mostrarMeuPerfil && (
-        <MeuPerfil
-          onVoltar={() => setMostrarMeuPerfil(false)}
-          onAtualizarPerfil={handleAtualizarPerfil}
         />
       )}
     </div>
