@@ -51,6 +51,8 @@ export interface AuthContextType {
   criarConta: (email: string, senha: string, nomeCompleto: string, cargo: 'gerente' | 'entregador') => Promise<{ sucesso: boolean; mensagem: string }>;
   recuperarSenha: (email: string) => Promise<{ sucesso: boolean; mensagem: string }>;
   redefinirSenha: (token: string, novaSenha: string) => Promise<{ sucesso: boolean; mensagem: string }>;
+  // FUNÇÃO ADICIONADA:
+  atualizarUsuario: (id: number, dados: Partial<Usuario>) => Promise<void>;
   isAuthenticated: boolean;
   isGerente: boolean;
   isEntregador: boolean;

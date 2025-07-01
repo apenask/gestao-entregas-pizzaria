@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Users, BarChart3, UserCheck, Settings } from 'lucide-react';
+import { FileText, Users, BarChart3, Settings } from 'lucide-react';
 import { Dashboard } from './components/Dashboard';
 import { NovaEntrega } from './components/NovaEntrega';
 import { EditarEntrega } from './components/EditarEntrega';
@@ -11,18 +11,32 @@ import { Login } from './components/Login';
 import { EntregadorDashboard } from './components/EntregadorDashboard';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './hooks/useAuth';
-import { TelaAtiva, Entrega, Entregador, Cliente } from './types';
-// AQUI ESTÁ A CORREÇÃO: 'formatarDuracaoLegivel' foi removido
-import { calcularDuracaoSegundos } from './utils/calculations'; 
+import { TelaAtiva, Entrega, Entregador, Cliente, Usuario } from './types';
 import { entregaService, entregadorService, clienteService } from './services/database';
+import { calcularDuracaoSegundos } from './utils/calculations';
+
+// Definindo o tipo para os dados da nova entrega
+type NovaEntregaDados = {
+  numeroPedido: string;
+  clienteId: number;
+  clienteNovo?: {
+    nome: string;
+    ruaNumero: string;
+    bairro: string;
+    telefone?: string;
+  };
+  entregadorId: number;
+  formaPagamento: 'Dinheiro' | 'Pix' | 'Cartão de Débito' | 'Cartão de Crédito';
+  valorTotalPedido: number;
+  valorCorrida: number;
+};
 
 function AppContent() {
-  const { isAuthenticated, isGerente, isEntregador, logout, usuario } = useAuth();
+  const { isAuthenticated, isGerente, isEntregador, logout, usuario, atualizarUsuario } = useAuth();
   const [telaAtiva, setTelaAtiva] = useState<TelaAtiva>('dashboard');
   const [mostrarNovaEntrega, setMostrarNovaEntrega] = useState(false);
   const [entregaParaEditar, setEntregaParaEditar] = useState<Entrega | null>(null);
-  
-  // Estados dos dados
+
   const [entregas, setEntregas] = useState<Entrega[]>([]);
   const [entregadores, setEntregadores] = useState<Entregador[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -30,14 +44,14 @@ function AppContent() {
 
   useEffect(() => {
     const carregarDados = async () => {
+      if (!isAuthenticated) return;
       try {
         setLoading(true);
         const [entregasData, entregadoresData, clientesData] = await Promise.all([
           entregaService.buscarTodas(),
           entregadorService.buscarTodos(),
-          clienteService.buscarTodos()
+          clienteService.buscarTodos(),
         ]);
-        
         setEntregas(entregasData);
         setEntregadores(entregadoresData);
         setClientes(clientesData);
@@ -47,61 +61,37 @@ function AppContent() {
         setLoading(false);
       }
     };
-    
-    if (isAuthenticated) {
-      carregarDados();
-    } else {
-      setLoading(false);
-    }
+    carregarDados();
   }, [isAuthenticated]);
 
-  const entregasComClientes = entregas.map(entrega => ({
+  const entregasComClientes = entregas.map((entrega) => ({
     ...entrega,
-    cliente: clientes.find(c => c.id === entrega.clienteId)
+    cliente: clientes.find((c) => c.id === entrega.clienteId),
   }));
 
-  const handleNovaEntrega = async (dadosEntrega: {
-    numeroPedido: string;
-    clienteId: number;
-    clienteNovo?: {
-      nome: string;
-      ruaNumero: string;
-      bairro: string;
-      telefone?: string;
-    };
-    entregadorId: number;
-    formaPagamento: 'Dinheiro' | 'Pix' | 'Cartão de Débito' | 'Cartão de Crédito';
-    valorTotalPedido: number;
-    valorCorrida: number;
-  }) => {
+  const handleNovaEntrega = async (dadosEntrega: NovaEntregaDados) => {
     try {
       let clienteId = dadosEntrega.clienteId;
-      
+
       if (dadosEntrega.clienteNovo) {
-        const novoCliente = await clienteService.criar({
-          nome: dadosEntrega.clienteNovo.nome,
-          ruaNumero: dadosEntrega.clienteNovo.ruaNumero,
-          bairro: dadosEntrega.clienteNovo.bairro,
-          telefone: dadosEntrega.clienteNovo.telefone
-        });
-        
-        setClientes(prev => [...prev, novoCliente]);
+        const novoCliente = await clienteService.criar(dadosEntrega.clienteNovo);
+        setClientes((prev) => [...prev, novoCliente]);
         clienteId = novoCliente.id;
       }
 
-      const novaEntrega = await entregaService.criar({
-        dataHora: new Date(),
+      const novaEntregaPayload = {
         numeroPedido: dadosEntrega.numeroPedido,
         clienteId: clienteId,
         entregadorId: dadosEntrega.entregadorId,
-        entregador: entregadores.find(e => e.id === dadosEntrega.entregadorId)?.nome || '',
         formaPagamento: dadosEntrega.formaPagamento,
         valorTotalPedido: dadosEntrega.valorTotalPedido,
         valorCorrida: dadosEntrega.valorCorrida,
-        status: 'Aguardando'
-      });
-
-      setEntregas(prev => [novaEntrega, ...prev]);
+        dataHora: new Date(),
+        status: 'Aguardando' as const,
+      };
+      
+      const novaEntrega = await entregaService.criar(novaEntregaPayload);
+      setEntregas((prev) => [novaEntrega, ...prev]);
       setMostrarNovaEntrega(false);
     } catch (error) {
       console.error('Erro ao criar entrega:', error);
@@ -115,7 +105,7 @@ function AppContent() {
   const handleSalvarEdicaoEntrega = async (entregaEditada: Entrega) => {
     try {
       const entregaAtualizada = await entregaService.atualizar(entregaEditada.id, entregaEditada);
-      setEntregas(prev => prev.map(e => e.id === entregaEditada.id ? entregaAtualizada : e));
+      setEntregas((prev) => prev.map((e) => (e.id === entregaEditada.id ? entregaAtualizada : e)));
       setEntregaParaEditar(null);
     } catch (error) {
       console.error('Erro ao editar entrega:', error);
@@ -125,39 +115,34 @@ function AppContent() {
   const handleExcluirEntrega = async (id: number) => {
     try {
       await entregaService.deletar(id);
-      setEntregas(prev => prev.filter(e => e.id !== id));
+      setEntregas((prev) => prev.filter((e) => e.id !== id));
     } catch (error) {
       console.error('Erro ao excluir entrega:', error);
     }
   };
 
-  const handleAtualizarStatus = async (id: number, status: Entrega['status'], dataHora?: Date) => {
+  const handleAtualizarStatus = async (id: number, status: Entrega['status']) => {
     try {
-      const entregaAtual = entregas.find(e => e.id === id);
+      const entregaAtual = entregas.find((e) => e.id === id);
       if (!entregaAtual) return;
 
-      const agora = dataHora || new Date();
+      const agora = new Date();
       const updateData: Partial<Entrega> = { status };
-      
+
       if (status === 'Em Rota') {
         updateData.dataHoraSaida = agora;
-      } else if (status === 'Entregue') {
+      } else if (status === 'Entregue' && entregaAtual.dataHoraSaida) {
         updateData.dataHoraEntrega = agora;
-        
-        const dataHoraSaida = entregaAtual.dataHoraSaida;
-        if (dataHoraSaida) {
-          const duracaoSegundos = calcularDuracaoSegundos(dataHoraSaida, agora);
-          updateData.duracaoEntrega = duracaoSegundos;
-        }
+        updateData.duracaoEntrega = calcularDuracaoSegundos(new Date(entregaAtual.dataHoraSaida), agora);
       }
 
       const entregaAtualizada = await entregaService.atualizar(id, updateData);
-      setEntregas(prev => prev.map(entrega => entrega.id === id ? entregaAtualizada : entrega));
+      setEntregas((prev) => prev.map((e) => (e.id === id ? entregaAtualizada : e)));
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
     }
   };
-
+  
   const handleAdicionarEntregador = async (nome: string, email: string) => {
     try {
       const novoEntregador = await entregadorService.criar({ nome, email });
@@ -170,7 +155,7 @@ function AppContent() {
   const handleEditarEntregador = async (id: number, nome: string, email: string) => {
     try {
       const entregadorAtualizado = await entregadorService.atualizar(id, { nome, email });
-      setEntregadores(prev => prev.map(e => e.id === id ? entregadorAtualizado : e));
+      setEntregadores(prev => prev.map(e => (e.id === id ? entregadorAtualizado : e)));
     } catch (error) {
       console.error('Erro ao editar entregador:', error);
     }
@@ -185,7 +170,7 @@ function AppContent() {
     }
   };
 
-  const handleAdicionarCliente = async (cliente: { nome: string; ruaNumero: string; bairro: string; telefone?: string }) => {
+  const handleAdicionarCliente = async (cliente: Omit<Cliente, 'id'>) => {
     try {
       const novoCliente = await clienteService.criar(cliente);
       setClientes(prev => [...prev, novoCliente]);
@@ -194,10 +179,10 @@ function AppContent() {
     }
   };
 
-  const handleEditarCliente = async (id: number, dadosCliente: { nome: string; ruaNumero: string; bairro: string; telefone?: string }) => {
+  const handleEditarCliente = async (id: number, dadosCliente: Omit<Cliente, 'id'>) => {
     try {
       const clienteAtualizado = await clienteService.atualizar(id, dadosCliente);
-      setClientes(prev => prev.map(cliente => cliente.id === id ? clienteAtualizado : cliente));
+      setClientes(prev => prev.map(c => (c.id === id ? clienteAtualizado : c)));
     } catch (error) {
       console.error('Erro ao editar cliente:', error);
     }
@@ -206,200 +191,61 @@ function AppContent() {
   const handleRemoverCliente = async (id: number) => {
     try {
       await clienteService.deletar(id);
-      setClientes(prev => prev.filter(cliente => cliente.id !== id));
+      setClientes(prev => prev.filter(c => c.id !== id));
     } catch (error) {
       console.error('Erro ao remover cliente:', error);
     }
   };
 
-  const handleAtualizarPerfil = (email: string, senha: string, nomeCompleto: string) => {
-    console.log('Atualizando perfil:', { email, senha, nomeCompleto });
+  const handleAtualizarPerfil = async (dados: Partial<Usuario>) => {
+    if (usuario) {
+      await atualizarUsuario(usuario.id, dados);
+    }
   };
 
+  if (!isAuthenticated) return <Login />;
+  if (loading) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Carregando...</div>;
+  if (isEntregador) return <EntregadorDashboard entregas={entregasComClientes.filter(e => e.entregadorId === usuario?.entregadorId)} clientes={clientes} onAtualizarStatus={handleAtualizarStatus} />;
 
-  if (!isAuthenticated) {
-    return <Login />;
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Carregando dados...</div>
-      </div>
-    );
-  }
-
-  if (isEntregador) {
-    return (
-      <EntregadorDashboard
-        entregas={entregasComClientes.filter(e => e.entregadorId === usuario?.entregadorId)}
-        clientes={clientes}
-        onAtualizarStatus={handleAtualizarStatus}
-      />
-    );
-  }
+  const NavButton = ({ tela, icone: Icone, nome }: { tela: TelaAtiva, icone: React.ElementType, nome: string }) => (
+    <button
+      onClick={() => setTelaAtiva(tela)}
+      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${telaAtiva === tela ? 'bg-red-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}>
+      <Icone size={16} />
+      {nome}
+    </button>
+  );
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <header className="bg-gray-800 border-b border-gray-700">
         <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex-shrink-0">
               <h1 className="text-xl font-bold text-white">Gestão de Entregas</h1>
             </div>
-
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setTelaAtiva('perfil')}
-                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
-              >
-                <UserCheck size={20} />
-                <span className="hidden sm:inline">{usuario?.nomeCompleto || 'Administrador'}</span>
-              </button>
-              
-              <button
-                onClick={logout}
-                className="text-gray-300 hover:text-red-400 transition-colors"
-              >
-                Sair
-              </button>
+            <div className="hidden md:flex md:items-center md:space-x-4">
+              <NavButton tela="dashboard" icone={BarChart3} nome="Dashboard" />
+              <NavButton tela="relatorios" icone={FileText} nome="Relatórios" />
+              <NavButton tela="entregadores" icone={Users} nome="Entregadores" />
+              <NavButton tela="clientes" icone={Users} nome="Clientes" />
+              {isGerente && <NavButton tela="perfil" icone={Settings} nome="Meu Perfil" />}
+            </div>
+            <div className="flex-shrink-0">
+              <button onClick={logout} className="text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Sair</button>
             </div>
           </div>
         </div>
       </header>
-
-      <nav className="bg-gray-800 border-b border-gray-700">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            <button
-              onClick={() => setTelaAtiva('dashboard')}
-              className={`py-4 px-2 border-b-2 text-sm font-medium transition-colors ${
-                telaAtiva === 'dashboard'
-                  ? 'border-red-500 text-red-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
-              }`}
-            >
-              <BarChart3 size={16} className="inline mr-2" />
-              Dashboard
-            </button>
-            
-            <button
-              onClick={() => setTelaAtiva('relatorios')}
-              className={`py-4 px-2 border-b-2 text-sm font-medium transition-colors ${
-                telaAtiva === 'relatorios'
-                  ? 'border-red-500 text-red-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
-              }`}
-            >
-              <FileText size={16} className="inline mr-2" />
-              Relatórios
-            </button>
-            
-            <button
-              onClick={() => setTelaAtiva('entregadores')}
-              className={`py-4 px-2 border-b-2 text-sm font-medium transition-colors ${
-                telaAtiva === 'entregadores'
-                  ? 'border-red-500 text-red-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
-              }`}
-            >
-              <Users size={16} className="inline mr-2" />
-              Entregadores
-            </button>
-            
-            <button
-              onClick={() => setTelaAtiva('clientes')}
-              className={`py-4 px-2 border-b-2 text-sm font-medium transition-colors ${
-                telaAtiva === 'clientes'
-                  ? 'border-red-500 text-red-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
-              }`}
-            >
-              <Users size={16} className="inline mr-2" />
-              Clientes
-            </button>
-
-            {isGerente && (
-              <button
-                onClick={() => setTelaAtiva('perfil')}
-                className={`py-4 px-2 border-b-2 text-sm font-medium transition-colors ${
-                  telaAtiva === 'perfil'
-                    ? 'border-red-500 text-red-400'
-                    : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
-                }`}
-              >
-                <Settings size={16} className="inline mr-2" />
-                Meu Perfil
-              </button>
-            )}
-          </div>
-        </div>
-      </nav>
-
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
-        {telaAtiva === 'dashboard' && (
-          <Dashboard
-            entregas={entregasComClientes}
-            entregadores={entregadores}
-            clientes={clientes}
-            onNovaEntrega={() => setMostrarNovaEntrega(true)}
-            onAtualizarStatus={handleAtualizarStatus}
-            onEditarEntrega={handleEditarEntrega}
-            onExcluirEntrega={handleExcluirEntrega}
-          />
-        )}
-        
-        {telaAtiva === 'relatorios' && (
-          <Relatorios
-            entregas={entregasComClientes}
-            entregadores={entregadores}
-          />
-        )}
-        
-        {telaAtiva === 'entregadores' && (
-          <Entregadores
-            entregadores={entregadores}
-            onAdicionarEntregador={handleAdicionarEntregador}
-            onEditarEntregador={handleEditarEntregador}
-            onRemoverEntregador={handleRemoverEntregador}
-          />
-        )}
-        
-        {telaAtiva === 'clientes' && (
-          <Clientes
-            clientes={clientes}
-            onAdicionarCliente={handleAdicionarCliente}
-            onEditarCliente={handleEditarCliente}
-            onRemoverCliente={handleRemoverCliente}
-          />
-        )}
-
-        {telaAtiva === 'perfil' && (
-          <MeuPerfil
-            onVoltar={() => setTelaAtiva('dashboard')}
-            onAtualizarPerfil={handleAtualizarPerfil}
-          />
-        )}
+        {telaAtiva === 'dashboard' && <Dashboard onNovaEntrega={() => setMostrarNovaEntrega(true)} onEditarEntrega={handleEditarEntrega} {...{ entregas: entregasComClientes, entregadores, clientes, onAtualizarStatus: handleAtualizarStatus, onExcluirEntrega: handleExcluirEntrega }} />}
+        {telaAtiva === 'relatorios' && <Relatorios entregas={entregasComClientes} entregadores={entregadores} />}
+        {telaAtiva === 'entregadores' && <Entregadores onAdicionarEntregador={handleAdicionarEntregador} onEditarEntregador={handleEditarEntregador} onRemoverEntregador={handleRemoverEntregador} entregadores={entregadores}/>}
+        {telaAtiva === 'clientes' && <Clientes onAdicionarCliente={handleAdicionarCliente} onEditarCliente={handleEditarCliente} onRemoverCliente={handleRemoverCliente} clientes={clientes}/>}
+        {telaAtiva === 'perfil' && <MeuPerfil onVoltar={() => setTelaAtiva('dashboard')} onAtualizarPerfil={handleAtualizarPerfil} />}
       </main>
-
-      {mostrarNovaEntrega && (
-        <NovaEntrega
-          entregadores={entregadores}
-          clientes={clientes}
-          onSalvar={handleNovaEntrega}
-          onFechar={() => setMostrarNovaEntrega(false)}
-        />
-      )}
-
-      {entregaParaEditar && (
-        <EditarEntrega
-          entrega={entregaParaEditar}
-          entregadores={entregadores}
-          clientes={clientes}
-          onSalvar={handleSalvarEdicaoEntrega}
-          onFechar={() => setEntregaParaEditar(null)}
-        />
-      )}
+      {mostrarNovaEntrega && <NovaEntrega entregadores={entregadores} clientes={clientes} onSalvar={handleNovaEntrega} onFechar={() => setMostrarNovaEntrega(false)} />}
+      {entregaParaEditar && <EditarEntrega entrega={entregaParaEditar} entregadores={entregadores} clientes={clientes} onSalvar={handleSalvarEdicaoEntrega} onFechar={() => setEntregaParaEditar(null)} />}
     </div>
   );
 }
