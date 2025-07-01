@@ -4,6 +4,8 @@ import { Entrega, Entregador } from '../types';
 import { formatarDataHora, formatarValor } from '../utils/calculations';
 import { Modal } from './Modal';
 import { useModal } from '../hooks/useModal';
+import { PDFGenerator } from '../utils/pdfGenerator'; // 1. Importar o gerador de PDF
+
 interface RelatoriosProps {
   entregas: Entrega[];
   entregadores: Entregador[];
@@ -20,25 +22,23 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ entregas, entregadores }
 
   const entregasFiltradas = useMemo(() => {
     return entregas.filter(entrega => {
-      // Filtrar apenas entregas entregues
       if (entrega.status !== 'Entregue') return false;
 
-      // Filtrar por entregador
       if (entregadorSelecionado && entrega.entregadorId !== entregadorSelecionado) {
         return false;
       }
 
-      // Filtrar por data
       if (dataInicio) {
         const dataEntrega = new Date(entrega.dataHora);
         const inicio = new Date(dataInicio);
+        inicio.setHours(0, 0, 0, 0); // Considerar o início do dia
         if (dataEntrega < inicio) return false;
       }
 
       if (dataFim) {
         const dataEntrega = new Date(entrega.dataHora);
         const fim = new Date(dataFim);
-        fim.setHours(23, 59, 59, 999); // Incluir todo o dia
+        fim.setHours(23, 59, 59, 999); // Considerar o fim do dia
         if (dataEntrega > fim) return false;
       }
 
@@ -46,7 +46,6 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ entregas, entregadores }
     });
   }, [entregas, entregadorSelecionado, dataInicio, dataFim]);
 
-  // Cálculos do resumo
   const resumo = useMemo(() => {
     const quantidadeEntregas = entregasFiltradas.length;
     const valorTotalCorridas = entregasFiltradas.reduce((total, entrega) => total + entrega.valorCorrida, 0);
@@ -82,6 +81,7 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ entregas, entregadores }
     ? entregadores.find(e => e.id === entregadorSelecionado)?.nome || 'Desconhecido'
     : '';
 
+  // 2. Função de gerar PDF corrigida
   const gerarPDF = async () => {
     if (entregasFiltradas.length === 0) {
       showAlert('Sem Dados', 'Não há entregas para gerar o relatório com os filtros selecionados.', 'error');
@@ -91,17 +91,25 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ entregas, entregadores }
     setGerandoPDF(true);
     
     try {
-      // Simular geração de PDF (você pode implementar a lógica real aqui)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      const pdfGenerator = new PDFGenerator();
+      const dadosRelatorio = {
+        entregas: entregasFiltradas,
+        entregadores,
+        entregadorSelecionado: entregadorSelecionado || undefined,
+        dataInicio,
+        dataFim,
+        valorAdicional
+      };
+
       if (entregadorSelecionado) {
-        showAlert('Relatório Gerado', 'Relatório individual foi gerado e baixado com sucesso!', 'success');
+        await pdfGenerator.gerarRelatorioIndividual(dadosRelatorio);
       } else {
-        showAlert('Relatório Gerado', 'Relatório geral consolidado foi gerado e baixado com sucesso!', 'success');
+        await pdfGenerator.gerarRelatorioGeral(dadosRelatorio);
       }
+      
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
-      showAlert('Erro na Geração', 'Ocorreu um erro ao gerar o relatório PDF. Tente novamente.', 'error');
+      showAlert('Erro na Geração', 'Ocorreu um erro ao gerar o relatório PDF. Verifique o console para mais detalhes.', 'error');
     } finally {
       setGerandoPDF(false);
     }
@@ -221,7 +229,6 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ entregas, entregadores }
             </div>
           </div>
 
-          {/* Valor adicional */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Valor Adicional (opcional)
@@ -236,7 +243,6 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ entregas, entregadores }
             />
           </div>
 
-          {/* Total final */}
           <div className="bg-red-900 bg-opacity-30 border border-red-600 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <span className="text-red-300 font-medium">Total Final:</span>
@@ -290,7 +296,6 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ entregas, entregadores }
           </div>
         </div>
 
-        {/* Lista de entregas */}
         {entregasFiltradas.length > 0 && (
           <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
             <h2 className="text-lg font-semibold text-white mb-4">
@@ -345,7 +350,6 @@ export const Relatorios: React.FC<RelatoriosProps> = ({ entregas, entregadores }
         )}
       </div>
 
-      {/* Modal */}
       <Modal
         isOpen={modalState.isOpen}
         type={modalState.type}
