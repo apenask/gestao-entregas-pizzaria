@@ -18,10 +18,11 @@ export interface Usuario {
   senha: string;
   nomeCompleto: string;
   cargo: 'gerente' | 'entregador';
-  entregadorId?: number; // Para vincular usuário entregador ao entregador
+  entregadorId?: number;
   emailVerificado?: boolean;
   tokenRecuperacao?: string;
   tokenExpiracao?: Date;
+  status_aprovacao?: 'pendente' | 'aprovado' | 'recusado';
 }
 
 export interface Entrega {
@@ -38,11 +39,11 @@ export interface Entrega {
   status: 'Aguardando' | 'Em Rota' | 'Entregue' | 'Cancelado';
   dataHoraSaida?: Date;
   dataHoraEntrega?: Date;
-  duracaoEntrega?: number; // Duração em SEGUNDOS - SALVA PERMANENTEMENTE
+  duracaoEntrega?: number;
 }
 
-// ADICIONADO 'perfil'
-export type TelaAtiva = 'dashboard' | 'relatorios' | 'entregadores' | 'clientes' | 'perfil';
+// DEFINIÇÃO CORRIGIDA E UNIFICADA
+export type TelaAtiva = 'dashboard' | 'relatorios' | 'entregadores' | 'clientes' | 'perfil' | 'aprovacoes';
 
 export interface AuthContextType {
   usuario: Usuario | null;
@@ -51,7 +52,6 @@ export interface AuthContextType {
   criarConta: (email: string, senha: string, nomeCompleto: string, cargo: 'gerente' | 'entregador') => Promise<{ sucesso: boolean; mensagem: string }>;
   recuperarSenha: (email: string) => Promise<{ sucesso: boolean; mensagem: string }>;
   redefinirSenha: (token: string, novaSenha: string) => Promise<{ sucesso: boolean; mensagem: string }>;
-  // FUNÇÃO ADICIONADA:
   atualizarUsuario: (id: number, dados: Partial<Usuario>) => Promise<void>;
   isAuthenticated: boolean;
   isGerente: boolean;
