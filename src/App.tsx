@@ -172,7 +172,10 @@ function AppContent() {
     <button onClick={() => setTelaAtiva(tela)} className={`relative px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${telaAtiva === tela ? 'bg-red-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}>
       <Icone size={16} />
       {nome}
-      {badge && badge > 0 && <span className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">{badge}</span>}
+      {/* *** ALTERADO: A condição agora é apenas 'badge > 0' *** */}
+      {typeof badge === 'number' && badge > 0 && (
+        <span className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">{badge}</span>
+      )}
     </button>
   );
 
