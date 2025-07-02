@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Clock, User, MapPin, Hash, DollarSign, Users, List, CheckCircle, Edit2, Trash2, Phone, Timer, Wallet, Watch as Stopwatch } from 'lucide-react';
+import { Plus, Clock, User, MapPin, Users, List, CheckCircle, Truck, Hash, Phone } from 'lucide-react';
 import { Entrega, Entregador, Cliente } from '../types';
-import { formatarHora, formatarValor, formatarDataHora, formatarDuracaoLegivel } from '../utils/calculations';
+import { formatarHora, formatarValor, formatarDuracaoLegivel } from '../utils/calculations';
 import { Modal } from './Modal';
 import { useModal } from '../hooks/useModal';
 import { useTimer } from '../hooks/useTimer';
@@ -81,74 +81,71 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const renderEntregaCard = (entrega: Entrega) => {
     const cliente = clientes.find(c => c.id === entrega.clienteId);
     const entregador = entregadores.find(e => e.id === entrega.entregadorId);
-
-    return (
-        <div key={entrega.id} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                <div className="flex-1 space-y-3">
-                    <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex items-center gap-2"><Hash size={16} className="text-blue-400" /> <span className="font-medium text-white">#{entrega.numeroPedido}</span></div>
-                        <div className={`px-2 py-1 rounded text-xs font-medium ${entrega.status === 'Aguardando' ? 'bg-yellow-600 text-yellow-100' : entrega.status === 'Em Rota' ? 'bg-blue-600 text-blue-100' : entrega.status === 'Entregue' ? 'bg-green-600 text-green-100' : 'bg-red-600 text-red-100'}`}>{entrega.status}</div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="flex items-center gap-2"><User size={16} className="text-gray-400" /> <span className="text-gray-300 text-sm">{cliente?.nome || 'Cliente não encontrado'}</span></div>
-                        <div className="flex items-center gap-2"><MapPin size={16} className="text-gray-400" /> <span className="text-gray-300 text-sm">{cliente?.ruaNumero}, {cliente?.bairro}</span></div>
-                        {cliente?.telefone && <div className="flex items-center gap-2"><Phone size={16} className="text-gray-400" /> <span className="text-gray-300 text-sm">{cliente.telefone}</span></div>}
-                        <div className="flex items-center gap-2"><User size={16} className="text-gray-400" /> <span className="text-gray-300 text-sm">Entregador: {entregador?.nome}</span></div>
-                        {entrega.status === 'Entregue' && entrega.dataHoraEntrega && <div className="flex items-center gap-2"><Clock size={16}/><span>Finalizada: {formatarDataHora(new Date(entrega.dataHoraEntrega))}</span></div>}
-                        {entrega.status === 'Entregue' && entrega.duracaoEntrega && <div className="flex items-center gap-2"><Stopwatch size={16}/><span>Duração: {formatarDuracaoLegivel(entrega.duracaoEntrega)}</span></div>}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex items-center gap-2"><DollarSign size={16} className="text-green-400" /> <span className="text-green-300 text-sm">Pedido: {formatarValor(entrega.valorTotalPedido)}</span></div>
-                        <div className="flex items-center gap-2"><DollarSign size={16} className="text-blue-400" /> <span className="text-blue-300 text-sm">Corrida: {formatarValor(entrega.valorCorrida)}</span></div>
-                        <div className="flex items-center gap-2"><Wallet size={16} className="text-orange-400" /> <span className="text-orange-300 text-sm font-bold">Total: {formatarValor(entrega.valorTotalPedido + entrega.valorCorrida)}</span></div>
-                        <div className="flex items-center gap-2"><Clock size={16} className="text-gray-400" /> <span className="text-gray-300 text-sm">{formatarHora(new Date(entrega.dataHora))}</span></div>
-                    </div>
-                    {entrega.status === 'Em Rota' && entrega.dataHoraSaida && <div className="flex items-center gap-2 bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg p-2"><Timer size={16} className="text-yellow-400" /> <span className="text-yellow-300 text-sm font-mono">Tempo em rota: {calcularTempoEmRota(new Date(entrega.dataHoraSaida))}</span></div>}
-                    {entrega.status === 'Aguardando' && <div className="flex flex-wrap gap-2"><button onClick={() => onAtualizarStatus(entrega.id, 'Em Rota')} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium">🚚 Sair para Entrega</button></div>}
-                    {entrega.status === 'Em Rota' && <div className="flex flex-wrap gap-2"><button onClick={() => onAtualizarStatus(entrega.id, 'Entregue')} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium">✅ Marcar como Entregue</button></div>}
-                </div>
-                <div className="flex lg:flex-col gap-2 lg:min-w-[120px]">
-                    <button onClick={() => onEditarEntrega(entrega)} className="flex-1 lg:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium flex items-center justify-center gap-2"><Edit2 size={16} /> Editar</button>
-                    <button onClick={() => handleExcluirComConfirmacao(entrega)} className="flex-1 lg:flex-none bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded text-sm font-medium flex items-center justify-center gap-2"><Trash2 size={16} /> Excluir</button>
-                </div>
-            </div>
-        </div>
-      );
+    const statusInfo = {
+        Aguardando: { cor: 'border-yellow-500', texto: 'text-yellow-400' },
+        'Em Rota': { cor: 'border-blue-500', texto: 'text-blue-400' },
+        Entregue: { cor: 'border-green-500', texto: 'text-green-400' },
+        Cancelado: { cor: 'border-red-500', texto: 'text-red-400' },
     };
 
+    return (
+        <div key={entrega.id} className={`bg-gray-800 rounded-lg p-4 border-l-4 ${statusInfo[entrega.status]?.cor || 'border-gray-500'} shadow-lg space-y-4`}>
+            <div className="flex justify-between items-start">
+                <div>
+                    <p className={`text-sm font-bold ${statusInfo[entrega.status]?.texto || 'text-gray-400'}`}>{entrega.status}</p>
+                    <h3 className="font-bold text-white text-lg"><Hash size={18} className="inline -mt-1"/>{entrega.numeroPedido}</h3>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-400"><Clock size={16} /><span>{formatarHora(new Date(entrega.dataHora))}</span></div>
+            </div>
+            <div className="border-t border-b border-gray-700 py-3 space-y-2">
+                <div className="flex items-center gap-3"><User size={16} className="text-gray-500"/> <span className="text-gray-200">{cliente?.nome || 'Cliente não encontrado'}</span></div>
+                <div className="flex items-center gap-3"><MapPin size={16} className="text-gray-500"/> <span className="text-gray-300">{cliente?.ruaNumero}, {cliente?.bairro}</span></div>
+                {cliente?.telefone && <div className="flex items-center gap-3"><Phone size={16} className="text-gray-500"/> <span className="text-gray-300">{cliente.telefone}</span></div>}
+                <div className="flex items-center gap-3"><Truck size={16} className="text-gray-500"/> <span className="text-gray-300">Entregador: {entregador?.nome || 'N/A'}</span></div>
+            </div>
+            <div className="grid grid-cols-3 gap-4 text-center">
+                <div><p className="text-xs text-gray-400">Pedido</p><p className="font-semibold text-white">{formatarValor(entrega.valorTotalPedido)}</p></div>
+                <div><p className="text-xs text-gray-400">Corrida</p><p className="font-semibold text-white">{formatarValor(entrega.valorCorrida)}</p></div>
+                <div className="text-orange-400"><p className="text-xs">Total</p><p className="font-bold">{formatarValor(entrega.valorTotalPedido + entrega.valorCorrida)}</p></div>
+            </div>
+            {entrega.status === 'Em Rota' && entrega.dataHoraSaida && <div className="bg-yellow-500/10 p-2 rounded-lg text-center"><p className="text-xs text-yellow-400">TEMPO EM ROTA</p><p className="text-yellow-300 font-mono text-xl">{calcularTempoEmRota(new Date(entrega.dataHoraSaida))}</p></div>}
+            {entrega.status === 'Entregue' && entrega.duracaoEntrega && <div className="bg-green-500/10 p-2 rounded-lg text-center"><p className="text-xs text-green-400">DURAÇÃO DA ENTREGA</p><p className="font-bold text-white text-lg">{formatarDuracaoLegivel(entrega.duracaoEntrega)}</p></div>}
+            <div className="flex gap-2 pt-3 border-t border-gray-700">
+                {entrega.status === 'Aguardando' && <button onClick={() => onAtualizarStatus(entrega.id, 'Em Rota')} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg">INICIAR ENTREGA</button>}
+                {entrega.status === 'Em Rota' && <button onClick={() => onAtualizarStatus(entrega.id, 'Entregue')} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg">FINALIZAR ENTREGA</button>}
+                <button onClick={() => onEditarEntrega(entrega)} className="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg">Editar</button>
+                <button onClick={() => handleExcluirComConfirmacao(entrega)} className="w-full bg-red-800/80 hover:bg-red-800 text-white py-2 rounded-lg">Excluir</button>
+            </div>
+        </div>
+    );
+  };
+
     const renderVisaoGeral = () => (
-      <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
-        <h2 className="text-lg sm:text-xl font-semibold text-white mb-4 flex items-center gap-2"><Clock size={20} className="text-red-500" />Entregas A Caminho ({entregasACaminho.length})</h2>
-        {entregasACaminho.length === 0 ? <p className="text-gray-400 text-center py-8">Nenhuma entrega em andamento</p> : <div className="space-y-4">{entregasACaminho.map(renderEntregaCard)}</div>}
-      </div>
+      <div className="space-y-4">{entregasACaminho.length > 0 ? entregasACaminho.map(renderEntregaCard) : <p className="text-center text-gray-500 py-10">Nenhuma entrega em andamento.</p>}</div>
     );
     
     const renderPorEntregador = () => {
         if (entregadoresAtivos.length === 0) return <div className="bg-gray-800 rounded-lg p-8 text-center text-gray-400">Nenhuma entrega em andamento.</div>;
         const entregasDoEntregadorAtivo = entregasPorEntregador[entregadorAtivoId || 0] || [];
         return (
-            <div className="bg-gray-800 rounded-lg border border-gray-700">
-                <div className="border-b border-gray-700 p-2 flex flex-wrap gap-1">
-                    {entregadoresAtivos.map(e => <button key={e.id} onClick={() => setEntregadorAtivoId(e.id)} className={`px-3 py-2 rounded-md font-medium text-sm ${entregadorAtivoId === e.id ? 'bg-red-600' : 'bg-gray-700 hover:bg-gray-600'}`}> {e.nome} ({entregasPorEntregador[e.id].length})</button>)}
+            <div>
+                <div className="mb-4 p-1 bg-gray-900/50 rounded-lg flex flex-wrap gap-1">
+                    {entregadoresAtivos.map(e => <button key={e.id} onClick={() => setEntregadorAtivoId(e.id)} className={`flex-1 px-3 py-2 rounded-md font-medium text-sm transition-colors ${entregadorAtivoId === e.id ? 'bg-red-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}> {e.nome} ({entregasPorEntregador[e.id].length})</button>)}
                 </div>
-                <div className="p-4 sm:p-6 space-y-4">
-                    {entregasDoEntregadorAtivo.map(renderEntregaCard)}
-                </div>
+                <div className="space-y-4">{entregasDoEntregadorAtivo.length > 0 ? entregasDoEntregadorAtivo.map(renderEntregaCard) : <p className="text-center text-gray-500 py-10">Este entregador não possui entregas ativas.</p>}</div>
             </div>
         );
     };
 
     const renderEntregasFinalizadas = () => (
-        <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                <h2 className="text-lg sm:text-xl font-semibold text-white flex items-center gap-2"><CheckCircle size={20} className="text-green-500" />Entregas Finalizadas ({entregasFinalizadasFiltradas.length})</h2>
-                <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-300">Filtrar por:</label>
-                    <select value={entregadorFiltroFinalizadas} onChange={(e) => setEntregadorFiltroFinalizadas(e.target.value ? Number(e.target.value) : '')} className="bg-gray-700 border border-gray-600 rounded-md px-3 py-1 text-white text-sm"><option value="">Todos</option>{entregadores.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select>
-                </div>
+        <div>
+            <div className="mb-4 flex justify-end">
+                <select value={entregadorFiltroFinalizadas} onChange={(e) => setEntregadorFiltroFinalizadas(e.target.value ? Number(e.target.value) : '')} className="bg-gray-700 border border-gray-600 rounded-md px-3 py-1 text-white text-sm">
+                    <option value="">Filtrar por entregador</option>
+                    {entregadores.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                </select>
             </div>
-            {entregasFinalizadasFiltradas.length === 0 ? <p className="text-gray-400 text-center py-8">Nenhuma entrega finalizada.</p> : <div className="space-y-4">{entregasFinalizadasFiltradas.map(renderEntregaCard)}</div>}
+            <div className="space-y-4">{entregasFinalizadasFiltradas.length > 0 ? entregasFinalizadasFiltradas.map(renderEntregaCard) : <p className="text-center text-gray-500 py-10">Nenhuma entrega finalizada encontrada.</p>}</div>
         </div>
     );
     
@@ -161,17 +158,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
     
           <div className="border-b border-gray-700">
             <div className="flex flex-wrap gap-1">
-              <button onClick={() => setModoVisualizacao('geral')} className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${modoVisualizacao === 'geral' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}><List size={16} className="inline mr-2" />Visão Geral</button>
-              <button onClick={() => setModoVisualizacao('por-entregador')} className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${modoVisualizacao === 'por-entregador' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}><Users size={16} className="inline mr-2" />Por Entregador</button>
-              <button onClick={() => setModoVisualizacao('finalizadas')} className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${modoVisualizacao === 'finalizadas' ? 'bg-red-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}><CheckCircle size={16} className="inline mr-2" />Finalizadas</button>
+              <button onClick={() => setModoVisualizacao('geral')} className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${modoVisualizacao === 'geral' ? 'bg-gray-700' : 'bg-transparent text-gray-400 hover:bg-gray-800'}`}><List size={16} className="inline mr-2" />Visão Geral</button>
+              <button onClick={() => setModoVisualizacao('por-entregador')} className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${modoVisualizacao === 'por-entregador' ? 'bg-gray-700' : 'bg-transparent text-gray-400 hover:bg-gray-800'}`}><Users size={16} className="inline mr-2" />Por Entregador</button>
+              <button onClick={() => setModoVisualizacao('finalizadas')} className={`px-4 py-2 rounded-t-lg font-medium transition-colors ${modoVisualizacao === 'finalizadas' ? 'bg-gray-700' : 'bg-transparent text-gray-400 hover:bg-gray-800'}`}><CheckCircle size={16} className="inline mr-2" />Finalizadas</button>
             </div>
           </div>
-    
-          {modoVisualizacao === 'geral' && renderVisaoGeral()}
-          {modoVisualizacao === 'por-entregador' && renderPorEntregador()}
-          {modoVisualizacao === 'finalizadas' && renderEntregasFinalizadas()}
+          
+          <div className="bg-gray-800/50 p-4 rounded-b-lg rounded-r-lg">
+            {modoVisualizacao === 'geral' && renderVisaoGeral()}
+            {modoVisualizacao === 'por-entregador' && renderPorEntregador()}
+            {modoVisualizacao === 'finalizadas' && renderEntregasFinalizadas()}
+          </div>
           
           <Modal onClose={closeModal} {...modalState} />
         </div>
-      );
+    );
 };
