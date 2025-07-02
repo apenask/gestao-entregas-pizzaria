@@ -36,7 +36,6 @@ export const Clientes: React.FC<ClientesProps> = ({
 
   const { modalState, showAlert, showConfirm, closeModal } = useModal();
 
-  // Filtrar clientes baseado na busca
   const clientesFiltrados = useMemo(() => {
     if (!busca.trim()) return clientes;
     
@@ -174,27 +173,8 @@ export const Clientes: React.FC<ClientesProps> = ({
 
           {clientesFiltrados.length === 0 ? (
             <div className="p-8 text-center">
-              {busca ? (
-                <>
-                  <Search size={48} className="mx-auto text-gray-500 mb-4" />
-                  <p className="text-gray-400">
-                    Nenhum cliente encontrado com o termo "{busca}"
-                  </p>
-                  <button
-                    onClick={() => setBusca('')}
-                    className="mt-3 text-red-400 hover:text-red-300 transition-colors duration-200"
-                  >
-                    Limpar busca
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Users size={48} className="mx-auto text-gray-500 mb-4" />
-                  <p className="text-gray-400">
-                    Nenhum cliente cadastrado ainda
-                  </p>
-                </>
-              )}
+              <Users size={48} className="mx-auto text-gray-500 mb-4" />
+              <p className="text-gray-400">Nenhum cliente cadastrado.</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-700">
@@ -202,56 +182,21 @@ export const Clientes: React.FC<ClientesProps> = ({
                 <div key={cliente.id} className="p-4 hover:bg-gray-750 transition-colors duration-200">
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                     <div className="flex-1 space-y-3">
-                      {/* Informações principais */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        <div className="flex items-center gap-2">
-                          <User size={16} className="text-green-500 flex-shrink-0" />
-                          <span className="font-bold text-white truncate">
-                            {cliente.nome}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin size={16} className="text-blue-500 flex-shrink-0" />
-                          <span className="text-gray-300 truncate">
-                            {cliente.bairro}
-                          </span>
-                        </div>
-                        {cliente.telefone && (
-                          <div className="flex items-center gap-2">
-                            <Phone size={16} className="text-purple-500 flex-shrink-0" />
-                            <span className="text-gray-300 truncate">
-                              {cliente.telefone}
-                            </span>
-                          </div>
-                        )}
+                      <div className="flex items-center gap-2">
+                        <User size={16} className="text-green-500 flex-shrink-0" />
+                        <span className="font-bold text-white truncate">{cliente.nome}</span>
                       </div>
-                      
-                      {/* Endereço completo */}
-                      <div className="bg-gray-800 rounded-md p-3">
-                        <p className="text-sm text-gray-300">
-                          <span className="font-medium text-white">Endereço Completo:</span> {cliente.ruaNumero}, {cliente.bairro}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          ID: {cliente.id}
-                        </p>
+                      <div className="text-sm text-gray-300">
+                          <span className="font-medium text-white">Endereço:</span> {cliente.ruaNumero}, {cliente.bairro}
                       </div>
                     </div>
                     
-                    {/* Botões de ação */}
                     <div className="flex lg:flex-col gap-2 lg:min-w-[120px]">
-                      <button
-                        onClick={() => handleAbrirModalEdicao(cliente)}
-                        className="flex-1 lg:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-2"
-                      >
-                        <Edit2 size={16} />
-                        Editar
+                      <button onClick={() => handleAbrirModalEdicao(cliente)} className="flex-1 lg:flex-none bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-2">
+                        <Edit2 size={16} /> Editar
                       </button>
-                      <button
-                        onClick={() => handleRemoverComConfirmacao(cliente)}
-                        className="flex-1 lg:flex-none bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-2"
-                      >
-                        <Trash2 size={16} />
-                        Excluir
+                      <button onClick={() => handleRemoverComConfirmacao(cliente)} className="flex-1 lg:flex-none bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-2">
+                        <Trash2 size={16} /> Excluir
                       </button>
                     </div>
                   </div>
@@ -270,93 +215,41 @@ export const Clientes: React.FC<ClientesProps> = ({
               <h2 className="text-lg sm:text-xl font-semibold text-white">
                 {clienteEditando ? 'Editar Cliente' : 'Adicionar Novo Cliente'}
               </h2>
-              <button
-                onClick={handleFecharModal}
-                className="text-gray-400 hover:text-white transition-colors duration-200 p-1"
-              >
+              <button onClick={handleFecharModal} className="text-gray-400 hover:text-white transition-colors duration-200 p-1">
                 <X size={24} />
               </button>
             </div>
 
             <form onSubmit={handleSubmitFormulario} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Nome do Cliente *
-                </label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Nome do Cliente *</label>
                 <div className="relative">
-                  <input
-                    type="text"
-                    value={formulario.nome}
-                    onChange={(e) => handleInputChange('nome', e.target.value)}
-                    className="w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    placeholder="Digite o nome completo"
-                    required
-                  />
+                  <input type="text" value={formulario.nome} onChange={(e) => handleInputChange('nome', e.target.value)} className="w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white" required />
                   <User size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 </div>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Rua e Número *
-                </label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Rua e Número *</label>
                 <div className="relative">
-                  <input
-                    type="text"
-                    value={formulario.ruaNumero}
-                    onChange={(e) => handleInputChange('ruaNumero', e.target.value)}
-                    className="w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    placeholder="Ex: Rua das Flores, 123"
-                    required
-                  />
+                  <input type="text" value={formulario.ruaNumero} onChange={(e) => handleInputChange('ruaNumero', e.target.value)} className="w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white" required />
                   <MapPin size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 </div>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Bairro *
-                </label>
-                <input
-                  type="text"
-                  value={formulario.bairro}
-                  onChange={(e) => handleInputChange('bairro', e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="Ex: Centro"
-                  required
-                />
+                <label className="block text-sm font-medium text-gray-300 mb-2">Bairro *</label>
+                <input type="text" value={formulario.bairro} onChange={(e) => handleInputChange('bairro', e.target.value)} className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white" required />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Telefone (Opcional)
-                </label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Telefone (Opcional)</label>
                 <div className="relative">
-                  <input
-                    type="tel"
-                    value={formulario.telefone}
-                    onChange={(e) => handleInputChange('telefone', e.target.value)}
-                    className="w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    placeholder="Ex: (11) 99999-9999"
-                  />
+                  <input type="tel" value={formulario.telefone} onChange={(e) => handleInputChange('telefone', e.target.value)} className="w-full px-3 py-2 pl-10 bg-gray-700 border border-gray-600 rounded-md text-white" />
                   <Phone size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 </div>
               </div>
-
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={handleFecharModal}
-                  className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium transition-colors duration-200"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium flex items-center justify-center gap-2 transition-colors duration-200"
-                >
-                  <Save size={16} />
-                  {clienteEditando ? 'Salvar Alterações' : 'Salvar Cliente'}
+                <button type="button" onClick={handleFecharModal} className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md font-medium">Cancelar</button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium flex items-center justify-center gap-2">
+                  <Save size={16} /> {clienteEditando ? 'Salvar Alterações' : 'Salvar Cliente'}
                 </button>
               </div>
             </form>
@@ -364,18 +257,7 @@ export const Clientes: React.FC<ClientesProps> = ({
         </div>
       )}
 
-      {/* Modal Global */}
-      <Modal
-        isOpen={modalState.isOpen}
-        onClose={closeModal}
-        title={modalState.title}
-        message={modalState.message}
-        type={modalState.type}
-        onConfirm={modalState.onConfirm}
-        confirmText={modalState.confirmText}
-        cancelText={modalState.cancelText}
-        isDestructive={modalState.isDestructive}
-      />
+      <Modal {...modalState} onClose={closeModal} />
     </>
   );
 };

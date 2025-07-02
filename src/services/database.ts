@@ -67,7 +67,6 @@ export const entregaService = {
     
     if (error) throw error
     
-    // Transformar dados do Supabase para o formato da aplicação
     const entregas: Entrega[] = (data || []).map((item: EntregaSupabase) => ({
       id: item.id,
       dataHora: new Date(item.data_hora),
@@ -110,11 +109,7 @@ export const entregaService = {
         data_hora_entrega: entrega.dataHoraEntrega?.toISOString(),
         duracao_entrega: entrega.duracaoEntrega
       })
-      .select(`
-        *,
-        cliente:clientes(*),
-        entregador:entregadores(nome)
-      `)
+      .select(`*, cliente:clientes(*), entregador:entregadores(nome)`)
       .single()
     
     if (error) throw error
@@ -126,13 +121,7 @@ export const entregaService = {
       dataHora: new Date(item.data_hora),
       numeroPedido: item.numero_pedido,
       clienteId: item.cliente_id,
-      cliente: item.cliente ? {
-        id: item.cliente.id,
-        nome: item.cliente.nome,
-        ruaNumero: item.cliente.rua_numero,
-        bairro: item.cliente.bairro,
-        telefone: item.cliente.telefone
-      } : undefined,
+      cliente: item.cliente ? { id: item.cliente.id, nome: item.cliente.nome, ruaNumero: item.cliente.rua_numero, bairro: item.cliente.bairro, telefone: item.cliente.telefone } : undefined,
       entregadorId: item.entregador_id,
       entregador: item.entregador?.nome,
       formaPagamento: item.forma_pagamento as 'Dinheiro' | 'Pix' | 'Cartão de Débito' | 'Cartão de Crédito',
@@ -147,7 +136,6 @@ export const entregaService = {
 
   async atualizar(id: number, entrega: Partial<Entrega>): Promise<Entrega> {
     const updateData: Record<string, unknown> = {}
-    
     if (entrega.dataHora) updateData.data_hora = entrega.dataHora.toISOString()
     if (entrega.numeroPedido) updateData.numero_pedido = entrega.numeroPedido
     if (entrega.clienteId) updateData.cliente_id = entrega.clienteId
@@ -160,51 +148,32 @@ export const entregaService = {
     if (entrega.dataHoraEntrega) updateData.data_hora_entrega = entrega.dataHoraEntrega.toISOString()
     if (entrega.duracaoEntrega !== undefined) updateData.duracao_entrega = entrega.duracaoEntrega
 
-    const { data, error } = await supabase
-      .from('entregas')
-      .update(updateData)
-      .eq('id', id)
-      .select(`
-        *,
-        cliente:clientes(*),
-        entregador:entregadores(nome)
-      `)
-      .single()
+    const { data, error } = await supabase.from('entregas').update(updateData).eq('id', id).select(`*, cliente:clientes(*), entregador:entregadores(nome)`).single()
     
     if (error) throw error
     
     const item = data as EntregaSupabase;
     
     return {
-      id: item.id,
-      dataHora: new Date(item.data_hora),
-      numeroPedido: item.numero_pedido,
-      clienteId: item.cliente_id,
-      cliente: item.cliente ? {
-        id: item.cliente.id,
-        nome: item.cliente.nome,
-        ruaNumero: item.cliente.rua_numero,
-        bairro: item.cliente.bairro,
-        telefone: item.cliente.telefone
-      } : undefined,
-      entregadorId: item.entregador_id,
-      entregador: item.entregador?.nome,
-      formaPagamento: item.forma_pagamento as 'Dinheiro' | 'Pix' | 'Cartão de Débito' | 'Cartão de Crédito',
-      valorTotalPedido: parseFloat(item.valor_total_pedido),
-      valorCorrida: parseFloat(item.valor_corrida),
-      status: item.status as 'Aguardando' | 'Em Rota' | 'Entregue' | 'Cancelado',
-      dataHoraSaida: item.data_hora_saida ? new Date(item.data_hora_saida) : undefined,
-      dataHoraEntrega: item.data_hora_entrega ? new Date(item.data_hora_entrega) : undefined,
-      duracaoEntrega: item.duracao_entrega
+        id: item.id,
+        dataHora: new Date(item.data_hora),
+        numeroPedido: item.numero_pedido,
+        clienteId: item.cliente_id,
+        cliente: item.cliente ? { id: item.cliente.id, nome: item.cliente.nome, ruaNumero: item.cliente.rua_numero, bairro: item.cliente.bairro, telefone: item.cliente.telefone } : undefined,
+        entregadorId: item.entregador_id,
+        entregador: item.entregador?.nome,
+        formaPagamento: item.forma_pagamento as 'Dinheiro' | 'Pix' | 'Cartão de Débito' | 'Cartão de Crédito',
+        valorTotalPedido: parseFloat(item.valor_total_pedido),
+        valorCorrida: parseFloat(item.valor_corrida),
+        status: item.status as 'Aguardando' | 'Em Rota' | 'Entregue' | 'Cancelado',
+        dataHoraSaida: item.data_hora_saida ? new Date(item.data_hora_saida) : undefined,
+        dataHoraEntrega: item.data_hora_entrega ? new Date(item.data_hora_entrega) : undefined,
+        duracaoEntrega: item.duracao_entrega
     }
   },
 
   async deletar(id: number): Promise<void> {
-    const { error } = await supabase
-      .from('entregas')
-      .delete()
-      .eq('id', id)
-    
+    const { error } = await supabase.from('entregas').delete().eq('id', id)
     if (error) throw error
   }
 }
@@ -212,88 +181,36 @@ export const entregaService = {
 // Serviços para Entregadores
 export const entregadorService = {
   async buscarTodos(): Promise<Entregador[]> {
-    const { data, error } = await supabase
-      .from('entregadores')
-      .select('*')
-      .order('nome')
-    
+    const { data, error } = await supabase.from('entregadores').select('*').order('nome')
     if (error) throw error
-    return (data || []).map((item: EntregadorSupabase) => ({
-      id: item.id,
-      nome: item.nome,
-      email: item.email
-    }))
+    return (data || []).map((item: EntregadorSupabase) => ({ id: item.id, nome: item.nome, email: item.email }))
   },
 
-  // MÉTODO NOVO NECESSÁRIO - Problema 2
   async buscarPorEmail(email: string): Promise<Entregador | null> {
-    try {
-      const { data, error } = await supabase
-        .from('entregadores')
-        .select('*')
-        .eq('email', email.toLowerCase())
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Nenhum registro encontrado
-          return null;
-        }
+    const { data, error } = await supabase.from('entregadores').select('*').eq('email', email.toLowerCase()).single();
+    if (error) {
+        if (error.code === 'PGRST116') return null;
         throw error;
-      }
-
-      return {
-        id: data.id,
-        nome: data.nome,
-        email: data.email
-      };
-    } catch (error) {
-      console.error('Erro ao buscar entregador por email:', error);
-      return null;
     }
+    return { id: data.id, nome: data.nome, email: data.email };
   },
 
   async criar(entregador: Omit<Entregador, 'id'>): Promise<Entregador> {
-    const { data, error } = await supabase
-      .from('entregadores')
-      .insert(entregador)
-      .select()
-      .single()
-    
+    const { data, error } = await supabase.from('entregadores').insert(entregador).select().single()
     if (error) throw error
-    
     const item = data as EntregadorSupabase;
-    return {
-      id: item.id,
-      nome: item.nome,
-      email: item.email
-    }
+    return { id: item.id, nome: item.nome, email: item.email }
   },
 
   async atualizar(id: number, entregador: Partial<Entregador>): Promise<Entregador> {
-    const { data, error } = await supabase
-      .from('entregadores')
-      .update(entregador)
-      .eq('id', id)
-      .select()
-      .single()
-    
+    const { data, error } = await supabase.from('entregadores').update(entregador).eq('id', id).select().single()
     if (error) throw error
-    
     const item = data as EntregadorSupabase;
-    return {
-      id: item.id,
-      nome: item.nome,
-      email: item.email
-    }
+    return { id: item.id, nome: item.nome, email: item.email }
   },
 
   async deletar(id: number): Promise<void> {
-    const { error } = await supabase
-      .from('entregadores')
-      .delete()
-      .eq('id', id)
-    
+    const { error } = await supabase.from('entregadores').delete().eq('id', id)
     if (error) throw error
   }
 }
@@ -301,43 +218,16 @@ export const entregadorService = {
 // Serviços para Clientes
 export const clienteService = {
   async buscarTodos(): Promise<Cliente[]> {
-    const { data, error } = await supabase
-      .from('clientes')
-      .select('*')
-      .order('nome')
-    
+    const { data, error } = await supabase.from('clientes').select('*').order('nome')
     if (error) throw error
-    return (data || []).map((item: ClienteSupabase) => ({
-      id: item.id,
-      nome: item.nome,
-      ruaNumero: item.rua_numero,
-      bairro: item.bairro,
-      telefone: item.telefone
-    }))
+    return (data || []).map((item: ClienteSupabase) => ({ id: item.id, nome: item.nome, ruaNumero: item.rua_numero, bairro: item.bairro, telefone: item.telefone }))
   },
 
   async criar(cliente: Omit<Cliente, 'id'>): Promise<Cliente> {
-    const { data, error } = await supabase
-      .from('clientes')
-      .insert({
-        nome: cliente.nome,
-        rua_numero: cliente.ruaNumero,
-        bairro: cliente.bairro,
-        telefone: cliente.telefone
-      })
-      .select()
-      .single()
-    
+    const { data, error } = await supabase.from('clientes').insert({ nome: cliente.nome, rua_numero: cliente.ruaNumero, bairro: cliente.bairro, telefone: cliente.telefone }).select().single()
     if (error) throw error
-    
     const item = data as ClienteSupabase;
-    return {
-      id: item.id,
-      nome: item.nome,
-      ruaNumero: item.rua_numero,
-      bairro: item.bairro,
-      telefone: item.telefone
-    }
+    return { id: item.id, nome: item.nome, ruaNumero: item.rua_numero, bairro: item.bairro, telefone: item.telefone }
   },
 
   async atualizar(id: number, cliente: Partial<Cliente>): Promise<Cliente> {
@@ -347,31 +237,14 @@ export const clienteService = {
     if (cliente.bairro) updateData.bairro = cliente.bairro
     if (cliente.telefone !== undefined) updateData.telefone = cliente.telefone
 
-    const { data, error } = await supabase
-      .from('clientes')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single()
-    
+    const { data, error } = await supabase.from('clientes').update(updateData).eq('id', id).select().single()
     if (error) throw error
-    
     const item = data as ClienteSupabase;
-    return {
-      id: item.id,
-      nome: item.nome,
-      ruaNumero: item.rua_numero,
-      bairro: item.bairro,
-      telefone: item.telefone
-    }
+    return { id: item.id, nome: item.nome, ruaNumero: item.rua_numero, bairro: item.bairro, telefone: item.telefone }
   },
 
   async deletar(id: number): Promise<void> {
-    const { error } = await supabase
-      .from('clientes')
-      .delete()
-      .eq('id', id)
-    
+    const { error } = await supabase.from('clientes').delete().eq('id', id)
     if (error) throw error
   }
 }
@@ -379,89 +252,34 @@ export const clienteService = {
 // Serviços para Usuários
 export const usuarioService = {
   async buscarPorEmail(email: string): Promise<Usuario | null> {
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .eq('email', email.toLowerCase())
-      .single()
-    
+    const { data, error } = await supabase.from('usuarios').select('*').eq('email', email.toLowerCase()).single()
     if (error && error.code !== 'PGRST116') throw error
-    
     if (!data) return null
-    
     const item = data as UsuarioSupabase;
-    
-    return {
-      id: item.id,
-      email: item.email,
-      senha: item.senha,
-      nomeCompleto: item.nome_completo,
-      cargo: item.cargo as 'gerente' | 'entregador',
-      entregadorId: item.entregador_id,
-      emailVerificado: item.email_verificado,
-      tokenRecuperacao: item.token_recuperacao,
-      tokenExpiracao: item.token_expiracao ? new Date(item.token_expiracao) : undefined
-    }
+    return { id: item.id, email: item.email, senha: item.senha, nomeCompleto: item.nome_completo, cargo: item.cargo as 'gerente' | 'entregador', entregadorId: item.entregador_id, emailVerificado: item.email_verificado, tokenRecuperacao: item.token_recuperacao, tokenExpiracao: item.token_expiracao ? new Date(item.token_expiracao) : undefined }
   },
 
   async buscarPorToken(token: string): Promise<Usuario | null> {
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .eq('token_recuperacao', token)
-      .single()
-    
+    const { data, error } = await supabase.from('usuarios').select('*').eq('token_recuperacao', token).single()
     if (error && error.code !== 'PGRST116') throw error
-    
     if (!data) return null
-    
     const item = data as UsuarioSupabase;
-    
-    return {
-      id: item.id,
-      email: item.email,
-      senha: item.senha,
-      nomeCompleto: item.nome_completo,
-      cargo: item.cargo as 'gerente' | 'entregador',
-      entregadorId: item.entregador_id,
-      emailVerificado: item.email_verificado,
-      tokenRecuperacao: item.token_recuperacao,
-      tokenExpiracao: item.token_expiracao ? new Date(item.token_expiracao) : undefined
-    }
+    return { id: item.id, email: item.email, senha: item.senha, nomeCompleto: item.nome_completo, cargo: item.cargo as 'gerente' | 'entregador', entregadorId: item.entregador_id, emailVerificado: item.email_verificado, tokenRecuperacao: item.token_recuperacao, tokenExpiracao: item.token_expiracao ? new Date(item.token_expiracao) : undefined }
   },
 
   async criar(usuario: Omit<Usuario, 'id'>): Promise<Usuario> {
-    const { data, error } = await supabase
-      .from('usuarios')
-      .insert({
-        email: usuario.email.toLowerCase(),
-        senha: usuario.senha,
-        nome_completo: usuario.nomeCompleto,
-        cargo: usuario.cargo,
-        entregador_id: usuario.entregadorId,
-        email_verificado: usuario.emailVerificado
-      })
-      .select()
-      .single()
-    
+    const { data, error } = await supabase.from('usuarios').insert({ email: usuario.email.toLowerCase(), senha: usuario.senha, nome_completo: usuario.nomeCompleto, cargo: usuario.cargo, entregador_id: usuario.entregadorId, email_verificado: usuario.emailVerificado }).select().single()
     if (error) throw error
-    
     const item = data as UsuarioSupabase;
-    return {
-      id: item.id,
-      email: item.email,
-      senha: item.senha,
-      nomeCompleto: item.nome_completo,
-      cargo: item.cargo as 'gerente' | 'entregador',
-      entregadorId: item.entregador_id,
-      emailVerificado: item.email_verificado,
-      tokenRecuperacao: item.token_recuperacao,
-      tokenExpiracao: item.token_expiracao ? new Date(item.token_expiracao) : undefined
-    }
+    return { id: item.id, email: item.email, senha: item.senha, nomeCompleto: item.nome_completo, cargo: item.cargo as 'gerente' | 'entregador', entregadorId: item.entregador_id, emailVerificado: item.email_verificado, tokenRecuperacao: item.token_recuperacao, tokenExpiracao: item.token_expiracao ? new Date(item.token_expiracao) : undefined }
   },
 
   async atualizar(id: number, usuario: Partial<Usuario>): Promise<Usuario> {
     const updateData: Record<string, unknown> = {}
+
+    // ===== AQUI ESTÁ A CORREÇÃO =====
+    if (usuario.email) updateData.email = usuario.email.toLowerCase();
+    
     if (usuario.senha) updateData.senha = usuario.senha
     if (usuario.nomeCompleto) updateData.nome_completo = usuario.nomeCompleto
     if (usuario.tokenRecuperacao !== undefined) {
@@ -472,15 +290,8 @@ export const usuarioService = {
     }
     if (usuario.emailVerificado !== undefined) updateData.email_verificado = usuario.emailVerificado
 
-    const { data, error } = await supabase
-      .from('usuarios')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single()
-    
+    const { data, error } = await supabase.from('usuarios').update(updateData).eq('id', id).select().single()
     if (error) throw error
-    
     const item = data as UsuarioSupabase;
     return {
       id: item.id,
