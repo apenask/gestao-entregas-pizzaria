@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-// Ícones 'User' e 'Wallet' foram removidos desta linha
-import { Truck, Clock, MapPin, Phone, LogOut, Timer, CheckSquare, Square, Package } from 'lucide-react';
+// Ícones não utilizados foram removidos
+import { Truck, Clock, MapPin, Phone, LogOut, Timer, CheckSquare, Square, Package, Wallet } from 'lucide-react'; 
 import { Entrega, Cliente } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { formatarValor, formatarHora } from '../utils/calculations';
@@ -30,6 +30,19 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
 
   const entregasAguardando = entregasCompletas.filter((e) => e.status === 'Aguardando');
   const entregasEmRota = entregasCompletas.filter((e) => e.status === 'Em Rota');
+
+  const ganhosDeHoje = useMemo(() => {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    return entregasCompletas
+      .filter(e => 
+        e.status === 'Entregue' && 
+        e.dataHoraEntrega && 
+        new Date(e.dataHoraEntrega).setHours(0, 0, 0, 0) === hoje.getTime()
+      )
+      .reduce((total, entrega) => total + entrega.valorCorrida, 0);
+  }, [entregasCompletas]);
 
   const toggleSelecionarEntrega = (entregaId: number) => {
     const novaSelecao = new Set(entregasSelecionadas);
@@ -82,7 +95,10 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
             {entrega.cliente?.telefone && <div className="flex items-center gap-3 text-gray-300"><Phone size={16} /><span>{entrega.cliente.telefone}</span></div>}
         </div>
         <div className="bg-gray-900/50 rounded-lg p-3">
-            <div className="flex items-center justify-between"><span className="text-gray-400 text-sm">Valor a Cobrar</span><span className="text-white font-bold text-xl">{formatarValor(entrega.valorTotalPedido + entrega.valorCorrida)}</span></div>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2"><Wallet size={16} className="text-orange-400" /> <span className="text-gray-400 text-sm">Valor a Cobrar</span></div>
+                <span className="text-white font-bold text-xl">{formatarValor(entrega.valorTotalPedido + entrega.valorCorrida)}</span>
+            </div>
         </div>
         {entrega.status === 'Em Rota' && entrega.dataHoraSaida && (
             <div className="bg-yellow-500/10 p-3 rounded-lg text-center">
@@ -98,22 +114,32 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <header className="bg-gray-800 p-4 border-b border-gray-700 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3">
+      <header className="bg-gray-800 p-4 border-b border-gray-700 flex items-center justify-between sticky top-0 z-10 gap-4">
+        <div className="flex items-center gap-3 flex-shrink-0">
             <Truck size={24} className="text-blue-400" />
             <div>
-                <h1 className="text-lg font-bold">Painel do Entregador</h1>
+                <h1 className="text-lg font-bold whitespace-nowrap">Painel</h1>
                 <p className="text-sm text-gray-400">Olá, {usuario?.nomeCompleto}</p>
             </div>
         </div>
-        <button onClick={logout} className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2"><LogOut size={16} /><span>Sair</span></button>
+        <div className="flex-grow flex justify-center">
+            <div className="text-center bg-green-500/10 border border-green-500/30 px-4 py-1 rounded-lg">
+                <p className="text-xs text-green-400">Ganhos de Hoje</p>
+                <p className="text-xl font-bold text-white">{formatarValor(ganhosDeHoje)}</p>
+            </div>
+        </div>
+        <div className="flex-shrink-0">
+            <button onClick={logout} className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-md text-sm font-medium flex items-center gap-2">
+              <LogOut size={18} />
+            </button>
+        </div>
       </header>
       
       <main className="p-4 sm:p-6 space-y-8">
         <section>
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2"><Timer size={20} className="text-blue-400" />Em Rota ({entregasEmRota.length})</h2>
           <div className="space-y-4">
-            {entregasEmRota.length > 0 ? entregasEmRota.map(renderEntregaCard) : <p className="text-center text-gray-500 py-8">Nenhuma entrega em rota.</p>}
+            {entregasEmRota.length > 0 ? entregasEmRota.map(renderEntregaCard) : <div className="text-center text-gray-500 py-8"><Truck size={40} className="mx-auto" /><p className="mt-2">Nenhuma entrega em rota.</p></div>}
           </div>
         </section>
 
@@ -123,7 +149,7 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
             <button onClick={handleSairComSelecionadas} className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 rounded-lg mb-4">SAIR COM SELECIONADAS ({entregasSelecionadas.size})</button>
           )}
           <div className="space-y-4">
-            {entregasAguardando.length > 0 ? entregasAguardando.map(renderEntregaCard) : <p className="text-center text-gray-500 py-8">Nenhuma entrega aguardando.</p>}
+            {entregasAguardando.length > 0 ? entregasAguardando.map(renderEntregaCard) : <div className="text-center text-gray-500 py-8"><Clock size={40} className="mx-auto" /><p className="mt-2">Nenhuma entrega aguardando.</p></div>}
           </div>
         </section>
       </main>
