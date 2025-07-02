@@ -78,6 +78,24 @@ const mapToUsuario = (item: UsuarioSupabase): Usuario => ({
     status_aprovacao: item.status_aprovacao,
 });
 
+// *** ADICIONADO: Nova função para mapear os dados para o formato do Supabase ***
+const mapToUsuarioSupabase = (usuario: Partial<Usuario>): Partial<UsuarioSupabase> => {
+  const data: Partial<UsuarioSupabase> = {};
+
+  if (usuario.email !== undefined) data.email = usuario.email;
+  if (usuario.senha !== undefined) data.senha = usuario.senha;
+  if (usuario.nomeCompleto !== undefined) data.nome_completo = usuario.nomeCompleto;
+  if (usuario.cargo !== undefined) data.cargo = usuario.cargo;
+  if (usuario.entregadorId !== undefined) data.entregador_id = usuario.entregadorId;
+  if (usuario.emailVerificado !== undefined) data.email_verificado = usuario.emailVerificado;
+  if (usuario.tokenRecuperacao !== undefined) data.token_recuperacao = usuario.tokenRecuperacao;
+  if (usuario.tokenExpiracao !== undefined) data.token_expiracao = usuario.tokenExpiracao?.toISOString();
+  if (usuario.status_aprovacao !== undefined) data.status_aprovacao = usuario.status_aprovacao;
+
+  return data;
+};
+
+
 // Serviços para Entregas
 export const entregaService = {
   async buscarTodas(): Promise<Entrega[]> {
@@ -199,14 +217,13 @@ export const usuarioService = {
     if (error) throw error;
     return (data || []).map(mapToUsuario);
   },
-  // FUNÇÃO CORRIGIDA
   async criar(usuario: Partial<Omit<Usuario, 'id'>>): Promise<Usuario> {
     const usuarioParaBanco = {
         email: usuario.email,
         senha: usuario.senha,
         nome_completo: usuario.nomeCompleto,
         cargo: usuario.cargo,
-        entregador_id: usuario.entregadorId, // Mapeamento para snake_case
+        entregador_id: usuario.entregadorId,
         status_aprovacao: usuario.status_aprovacao,
     };
     const { data, error } = await supabase.from('usuarios').insert(usuarioParaBanco).select().single();
@@ -216,9 +233,22 @@ export const usuarioService = {
     }
     return mapToUsuario(data as UsuarioSupabase);
   },
+
+  // *** ATUALIZADO: Função 'atualizar' corrigida para usar o mapeamento ***
   async atualizar(id: number, usuario: Partial<Usuario>): Promise<Usuario> {
-    const { data, error } = await supabase.from('usuarios').update(usuario).eq('id', id).select().single();
-    if (error) throw error;
+    const dadosParaBanco = mapToUsuarioSupabase(usuario);
+
+    const { data, error } = await supabase
+      .from('usuarios')
+      .update(dadosParaBanco)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Erro do Supabase ao atualizar usuário:", error);
+      throw error;
+    }
     return mapToUsuario(data as UsuarioSupabase);
   },
 };
