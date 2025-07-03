@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FileText, Users, BarChart3, Settings, UserCheck } from 'lucide-react';
-import { RealtimePostgresChangesPayload } from '@supabase/supabase-js'; // *** ADICIONADO: Importação do tipo correto ***
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { Dashboard } from './components/Dashboard';
 import { NovaEntrega } from './components/NovaEntrega';
 import { EditarEntrega } from './components/EditarEntrega';
@@ -40,35 +40,35 @@ function AppContent() {
   const [usuariosPendentes, setUsuariosPendentes] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const carregarDados = useCallback(async () => {
+    try {
+      const [entregasData, entregadoresData, clientesData, pendentesData] = await Promise.all([
+        entregaService.buscarTodas(),
+        entregadorService.buscarTodos(),
+        clienteService.buscarTodos(),
+        isGerente ? usuarioService.buscarPendentes() : Promise.resolve([]),
+      ]);
+      setEntregas(entregasData);
+      setEntregadores(entregadoresData);
+      setClientes(clientesData);
+      setUsuariosPendentes(pendentesData);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+    } finally {
+      if (loading) setLoading(false);
+    }
+  }, [isGerente, loading]);
+
   useEffect(() => {
     if (!isAuthenticated) {
       setLoading(false);
       return;
     }
-
-    const carregarDados = async () => {
-      try {
-        const [entregasData, entregadoresData, clientesData, pendentesData] = await Promise.all([
-          entregaService.buscarTodas(),
-          entregadorService.buscarTodos(),
-          clienteService.buscarTodos(),
-          isGerente ? usuarioService.buscarPendentes() : Promise.resolve([]),
-        ]);
-        setEntregas(entregasData);
-        setEntregadores(entregadoresData);
-        setClientes(clientesData);
-        setUsuariosPendentes(pendentesData);
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-      } finally {
-        if (loading) setLoading(false);
-      }
-    };
-
+    
     carregarDados();
 
-    // *** ALTERADO: O tipo 'any' foi substituído pelo tipo específico do Supabase ***
-    const handleMudancaNoBanco = (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+    // *** CORRIGIDO: O tipo 'any' foi substituído por 'unknown' para ser mais seguro ***
+    const handleMudancaNoBanco = (payload: RealtimePostgresChangesPayload<{ [key: string]: unknown }>) => {
         console.log('Mudança recebida no banco de dados!', payload);
         carregarDados();
     };
@@ -84,68 +84,54 @@ function AppContent() {
       supabase.removeChannel(clientesChannel);
       supabase.removeChannel(entregadoresChannel);
     };
-  }, [isAuthenticated, isGerente, loading]);
-
+  }, [isAuthenticated, isGerente, carregarDados]);
+  
   const handleGerenciarAprovacao = async (id: number, status: 'aprovado' | 'recusado') => {
     try {
       const usuarioPendente = usuariosPendentes.find(u => u.id === id);
       if (!usuarioPendente) return;
-
       await usuarioService.atualizar(id, { status_aprovacao: status });
-
       if (status === 'recusado' && usuarioPendente.entregadorId) {
         await entregadorService.deletar(usuarioPendente.entregadorId);
       }
-      
-      setUsuariosPendentes(prev => prev.filter(u => u.id !== id));
-
-    } catch (error) { 
-      console.error(`Erro ao ${status} usuário:`, error); 
-    }
+    } catch (error) { console.error(`Erro ao ${status} usuário:`, error); }
   };
-  
   const handleAdicionarEntregador = async (nome: string, email: string) => {
     try {
       await entregadorService.criar({ nome, email });
     } catch (error) { console.error('Erro ao adicionar entregador:', error); }
   };
-  
   const handleEditarEntregador = async (id: number, nome: string, email: string) => {
     try {
       await entregadorService.atualizar(id, { nome, email });
     } catch (error) { console.error('Erro ao editar entregador:', error); }
   };
-
   const handleRemoverEntregador = async (id: number) => {
     try {
       await entregadorService.deletar(id);
     } catch (error) { console.error('Erro ao remover entregador:', error); }
   };
-  
   const handleAdicionarCliente = async (cliente: Omit<Cliente, 'id'>) => {
     try {
       await clienteService.criar(cliente);
     } catch (error) { console.error('Erro ao adicionar cliente:', error); }
   };
-  
   const handleEditarCliente = async (id: number, dadosCliente: Omit<Cliente, 'id'>) => {
     try {
       await clienteService.atualizar(id, dadosCliente);
     } catch (error) { console.error('Erro ao editar cliente:', error); }
   };
-
   const handleRemoverCliente = async (id: number) => {
     try {
       await clienteService.deletar(id);
     } catch (error) { console.error('Erro ao remover cliente:', error); }
   };
-  
   const handleAtualizarPerfil = async (dados: Partial<Usuario>) => {
     if (usuario) { await atualizarUsuario(usuario.id, dados); }
   };
   
-  const entregasComClientes = entregas.map((entrega) => ({ ...entrega, cliente: clientes.find((c) => c.id === entrega.clienteId) }));
-  
+  // *** REMOVIDO: A variável 'entregasComClientes' não estava a ser utilizada ***
+
   const handleNovaEntrega = async (dadosEntrega: NovaEntregaDados) => {
     try {
       let clienteId = dadosEntrega.clienteId;
@@ -153,46 +139,57 @@ function AppContent() {
         const novoCliente = await clienteService.criar(dadosEntrega.clienteNovo);
         clienteId = novoCliente.id;
       }
-      
       const payload = { ...dadosEntrega, clienteId };
       delete (payload as Partial<NovaEntregaDados>).clienteNovo;
-
       await entregaService.criar({ ...payload, dataHora: new Date(), status: 'Aguardando' });
       setMostrarNovaEntrega(false);
     } catch (error) { 
       console.error('Erro ao criar entrega:', error); 
     }
   };
-
   const handleEditarEntrega = (entrega: Entrega) => { setEntregaParaEditar(entrega); };
-  
   const handleSalvarEdicaoEntrega = async (entregaEditada: Entrega) => {
     try {
       await entregaService.atualizar(entregaEditada.id, entregaEditada);
       setEntregaParaEditar(null);
     } catch (error) { console.error('Erro ao editar entrega:', error); }
   };
-  
   const handleExcluirEntrega = async (id: number) => {
     try {
       await entregaService.deletar(id);
     } catch (error) { console.error('Erro ao excluir entrega:', error); }
   };
-  
+
   const handleAtualizarStatus = async (id: number, status: Entrega['status']) => {
+    const entregaOriginal = entregas.find((e) => e.id === id);
+    if (!entregaOriginal) return;
+
+    const agora = new Date();
+    const dadosAtualizacao: Partial<Entrega> = { status };
+    if (status === 'Em Rota') {
+      dadosAtualizacao.dataHoraSaida = agora;
+    } else if (status === 'Entregue' && entregaOriginal.dataHoraSaida) {
+      dadosAtualizacao.dataHoraEntrega = agora;
+      dadosAtualizacao.duracaoEntrega = calcularDuracaoSegundos(new Date(entregaOriginal.dataHoraSaida), agora);
+    }
+
+    const entregaOtimista: Entrega = {
+      ...entregaOriginal,
+      ...dadosAtualizacao,
+    };
+
+    setEntregas(prevEntregas =>
+      prevEntregas.map(e => (e.id === id ? entregaOtimista : e))
+    );
+
     try {
-      const entregaAtual = entregas.find((e) => e.id === id);
-      if (!entregaAtual) return;
-      const agora = new Date();
-      const updateData: Partial<Entrega> = { status };
-      if (status === 'Em Rota') {
-        updateData.dataHoraSaida = agora;
-      } else if (status === 'Entregue' && entregaAtual.dataHoraSaida) {
-        updateData.dataHoraEntrega = agora;
-        updateData.duracaoEntrega = calcularDuracaoSegundos(new Date(entregaAtual.dataHoraSaida), agora);
-      }
-      await entregaService.atualizar(id, updateData);
-    } catch (error) { console.error('Erro ao atualizar status:', error); }
+      await entregaService.atualizar(id, dadosAtualizacao);
+    } catch (error) {
+      console.error('Falha na atualização otimista, a reverter UI:', error);
+      setEntregas(prevEntregas =>
+        prevEntregas.map(e => (e.id === id ? entregaOriginal : e))
+      );
+    }
   };
 
   const NavButton = ({ tela, icone: Icone, nome, badge }: { tela: TelaAtiva, icone: React.ElementType, nome: string, badge?: number }) => (
@@ -209,7 +206,16 @@ function AppContent() {
 
   if (!isAuthenticated) return <Login />;
   if (loading) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Carregando...</div>;
-  if (isEntregador) return <EntregadorDashboard entregas={entregasComClientes.filter(e => e.entregadorId === usuario?.entregadorId)} clientes={clientes} onAtualizarStatus={handleAtualizarStatus} />;
+  
+  if (isEntregador) {
+    return (
+      <EntregadorDashboard 
+        entregas={entregas.filter(e => e.entregadorId === usuario?.entregadorId)} 
+        clientes={clientes} 
+        onAtualizarStatus={handleAtualizarStatus}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -230,8 +236,8 @@ function AppContent() {
         </div>
       </header>
       <main className="w-full px-4 sm:px-6 lg:px-8 py-8">
-        {telaAtiva === 'dashboard' && <Dashboard onNovaEntrega={() => setMostrarNovaEntrega(true)} onEditarEntrega={handleEditarEntrega} {...{ entregas: entregasComClientes, entregadores, clientes, onAtualizarStatus: handleAtualizarStatus, onExcluirEntrega: handleExcluirEntrega }} />}
-        {telaAtiva === 'relatorios' && <Relatorios entregas={entregasComClientes} entregadores={entregadores} />}
+        {telaAtiva === 'dashboard' && <Dashboard onNovaEntrega={() => setMostrarNovaEntrega(true)} onEditarEntrega={handleEditarEntrega} {...{ entregas, entregadores, clientes, onAtualizarStatus: handleAtualizarStatus, onExcluirEntrega: handleExcluirEntrega }} />}
+        {telaAtiva === 'relatorios' && <Relatorios entregas={entregas} entregadores={entregadores} />}
         {telaAtiva === 'entregadores' && <Entregadores onAdicionarEntregador={handleAdicionarEntregador} onEditarEntregador={handleEditarEntregador} onRemoverEntregador={handleRemoverEntregador} entregadores={entregadores}/>}
         {telaAtiva === 'clientes' && <Clientes onAdicionarCliente={handleAdicionarCliente} onEditarCliente={handleEditarCliente} onRemoverCliente={handleRemoverCliente} clientes={clientes}/>}
         {telaAtiva === 'perfil' && <MeuPerfil onVoltar={() => setTelaAtiva('dashboard')} onAtualizarPerfil={handleAtualizarPerfil} />}

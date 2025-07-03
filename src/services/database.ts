@@ -102,6 +102,25 @@ const mapToUsuarioSupabase = (usuario: Partial<Usuario>): Partial<UsuarioSupabas
   return data;
 };
 
+// *** ALTERADO: O tipo 'any' foi removido e substituído por um tipo específico ***
+const mapToEntregaSupabase = (entrega: Partial<Entrega>): Partial<EntregaSupabase> => {
+    const data: Partial<EntregaSupabase> = {};
+
+    if (entrega.dataHora !== undefined) data.data_hora = entrega.dataHora.toISOString();
+    if (entrega.numeroPedido !== undefined) data.numero_pedido = entrega.numeroPedido;
+    if (entrega.clienteId !== undefined) data.cliente_id = entrega.clienteId;
+    if (entrega.entregadorId !== undefined) data.entregador_id = entrega.entregadorId;
+    if (entrega.formaPagamento !== undefined) data.forma_pagamento = entrega.formaPagamento;
+    if (entrega.valorTotalPedido !== undefined) data.valor_total_pedido = entrega.valorTotalPedido.toString();
+    if (entrega.valorCorrida !== undefined) data.valor_corrida = entrega.valorCorrida.toString();
+    if (entrega.status !== undefined) data.status = entrega.status;
+    if (entrega.dataHoraSaida !== undefined) data.data_hora_saida = entrega.dataHoraSaida.toISOString();
+    if (entrega.dataHoraEntrega !== undefined) data.data_hora_entrega = entrega.dataHoraEntrega.toISOString();
+    if (entrega.duracaoEntrega !== undefined) data.duracao_entrega = entrega.duracaoEntrega;
+
+    return data;
+}
+
 export const entregaService = {
   async buscarTodas(): Promise<Entrega[]> {
     const { data, error } = await supabase.from('entregas').select(`*, cliente:clientes(*), entregador:entregadores(*)`).order('data_hora', { ascending: false });
@@ -109,22 +128,18 @@ export const entregaService = {
     return (data || []).map(mapToEntrega);
   },
   async criar(entrega: Partial<Omit<Entrega, 'id'>>): Promise<Entrega> {
-    const { data, error } = await supabase.from('entregas').insert({
-      data_hora: entrega.dataHora?.toISOString(),
-      numero_pedido: entrega.numeroPedido,
-      cliente_id: entrega.clienteId,
-      entregador_id: entrega.entregadorId,
-      forma_pagamento: entrega.formaPagamento,
-      valor_total_pedido: entrega.valorTotalPedido,
-      valor_corrida: entrega.valorCorrida,
-      status: entrega.status,
-    }).select(`*, cliente:clientes(*), entregador:entregadores(*)`).single();
+    const dadosParaBanco = mapToEntregaSupabase(entrega);
+    const { data, error } = await supabase.from('entregas').insert(dadosParaBanco).select(`*, cliente:clientes(*), entregador:entregadores(*)`).single();
     if (error) throw error;
     return mapToEntrega(data as EntregaSupabase);
   },
   async atualizar(id: number, entrega: Partial<Entrega>): Promise<Entrega> {
-    const { data, error } = await supabase.from('entregas').update(entrega).eq('id', id).select(`*, cliente:clientes(*), entregador:entregadores(*)`).single();
-    if (error) throw error;
+    const dadosParaBanco = mapToEntregaSupabase(entrega);
+    const { data, error } = await supabase.from('entregas').update(dadosParaBanco).eq('id', id).select(`*, cliente:clientes(*), entregador:entregadores(*)`).single();
+    if (error) {
+        console.error("Erro ao atualizar entrega:", error);
+        throw error;
+    }
     return mapToEntrega(data as EntregaSupabase);
   },
   async deletar(id: number): Promise<void> {
