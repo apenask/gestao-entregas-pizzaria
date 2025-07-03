@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -18,10 +18,12 @@ interface MapaRastreioProps {
   entregador: Entregador | null;
 }
 
-// Componente para recentralizar o mapa quando a posição do marcador muda
+// *** ALTERAÇÃO AQUI: O componente agora usa useEffect para evitar recentralizações desnecessárias ***
 function ChangeView({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
-  map.setView(center, zoom);
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]); // Só executa quando o centro, zoom ou o próprio mapa mudam
   return null;
 }
 
