@@ -18,12 +18,12 @@ interface MapaRastreioProps {
   entregador: Entregador | null;
 }
 
-// *** ALTERAÇÃO AQUI: O componente agora usa useEffect para evitar recentralizações desnecessárias ***
-function ChangeView({ center, zoom }: { center: [number, number]; zoom: number }) {
+// Este componente auxiliar move o mapa para o centro sem alterar o zoom.
+function ChangeView({ center }: { center: [number, number] }) {
   const map = useMap();
   useEffect(() => {
-    map.setView(center, zoom);
-  }, [center, zoom, map]); // Só executa quando o centro, zoom ou o próprio mapa mudam
+    map.panTo(center);
+  }, [center, map]);
   return null;
 }
 
@@ -38,16 +38,26 @@ export const MapaRastreio: React.FC<MapaRastreioProps> = ({ entregador }) => {
 
   return (
     <div className="h-96 w-full rounded-lg overflow-hidden border-2 border-gray-700">
+      {/*
+        *** A MUDANÇA PRINCIPAL É AQUI ***
+        'center' e 'zoom' no MapContainer são definidos apenas UMA VEZ na criação do mapa.
+        Isto impede que o mapa seja reiniciado a cada atualização de dados.
+        O componente ChangeView irá tratar de mover o mapa para a nova posição.
+      */}
       <MapContainer 
-        center={posicaoEntregador || posicaoInicial} 
+        center={posicaoInicial} 
         zoom={15} 
         style={{ height: '100%', width: '100%' }}
       >
-        {posicaoEntregador && <ChangeView center={posicaoEntregador} zoom={15} />}
+        {/* O ChangeView só é renderizado se tivermos uma posição,
+            e ele irá mover o mapa para essa posição sem alterar o zoom. */}
+        {posicaoEntregador && <ChangeView center={posicaoEntregador} />}
+        
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
+        
         {posicaoEntregador && (
           <Marker position={posicaoEntregador}>
             <Popup>
