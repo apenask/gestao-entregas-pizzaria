@@ -11,10 +11,11 @@ import { Aprovacoes } from './components/Aprovacoes';
 import { Login } from './components/Login';
 import { EntregadorDashboard } from './components/EntregadorDashboard';
 import { AuthProvider } from './contexts/AuthContext';
-import { useAuth } from './hooks/useAuth'; // CORREÇÃO: Importa do hook
+import { useAuth } from './hooks/useAuth';
 import { TelaAtiva, Entrega, Entregador, Cliente, Usuario } from './types';
 import { entregaService, entregadorService, clienteService, usuarioService } from './services/database';
 import { calcularDuracaoSegundos } from './utils/calculations';
+import { supabase } from './lib/supabase'; // Importe o supabase client
 
 type NovaEntregaDados = {
   numeroPedido: string;
@@ -39,11 +40,13 @@ function AppContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated) { setLoading(false); return; }
-    
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
     const carregarDados = async () => {
       try {
-        setLoading(true);
         const [entregasData, entregadoresData, clientesData, pendentesData] = await Promise.all([
           entregaService.buscarTodas(),
           entregadorService.buscarTodos(),
@@ -54,11 +57,31 @@ function AppContent() {
         setEntregadores(entregadoresData);
         setClientes(clientesData);
         setUsuariosPendentes(pendentesData);
-      } catch (error) { console.error('Erro ao carregar dados:', error); } 
-      finally { setLoading(false); }
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+      } finally {
+        if (loading) setLoading(false);
+      }
     };
+
     carregarDados();
-  }, [isAuthenticated, isGerente]);
+
+    const canalDeEntregas = supabase
+      .channel('mudancas_entregas')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'entregas' },
+        (payload) => {
+          console.log('Mudança recebida!', payload);
+          carregarDados();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canalDeEntregas);
+    };
+  }, [isAuthenticated, isGerente, loading]);
 
   const handleGerenciarAprovacao = async (id: number, status: 'aprovado' | 'recusado') => {
     try {
@@ -138,8 +161,7 @@ function AppContent() {
   
   const handleSalvarEdicaoEntrega = async (entregaEditada: Entrega) => {
     try {
-      const entregaAtualizada = await entregaService.atualizar(entregaEditada.id, entregaEditada);
-      setEntregas((prev) => prev.map((e) => (e.id === entregaEditada.id ? entregaAtualizada : e)));
+      await entregaService.atualizar(entregaEditada.id, entregaEditada);
       setEntregaParaEditar(null);
     } catch (error) { console.error('Erro ao editar entrega:', error); }
   };
@@ -147,7 +169,6 @@ function AppContent() {
   const handleExcluirEntrega = async (id: number) => {
     try {
       await entregaService.deletar(id);
-      setEntregas((prev) => prev.filter((e) => e.id !== id));
     } catch (error) { console.error('Erro ao excluir entrega:', error); }
   };
   
@@ -163,8 +184,7 @@ function AppContent() {
         updateData.dataHoraEntrega = agora;
         updateData.duracaoEntrega = calcularDuracaoSegundos(new Date(entregaAtual.dataHoraSaida), agora);
       }
-      const entregaAtualizada = await entregaService.atualizar(id, updateData);
-      setEntregas((prev) => prev.map((e) => (e.id === id ? entregaAtualizada : e)));
+      await entregaService.atualizar(id, updateData);
     } catch (error) { console.error('Erro ao atualizar status:', error); }
   };
 
@@ -172,9 +192,11 @@ function AppContent() {
     <button onClick={() => setTelaAtiva(tela)} className={`relative px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${telaAtiva === tela ? 'bg-red-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}>
       <Icone size={16} />
       {nome}
-      {/* *** ALTERADO: A condição agora é apenas 'badge > 0' *** */}
+      {/* *** ALTERAÇÃO AQUI: Condição corrigida para ser segura com TypeScript *** */}
       {typeof badge === 'number' && badge > 0 && (
-        <span className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">{badge}</span>
+        <span className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+          {badge}
+        </span>
       )}
     </button>
   );
