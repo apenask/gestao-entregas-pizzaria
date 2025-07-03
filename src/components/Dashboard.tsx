@@ -5,6 +5,7 @@ import { formatarHora, formatarValor, formatarDuracaoLegivel } from '../utils/ca
 import { Modal } from './Modal';
 import { useModal } from '../hooks/useModal';
 import { useTimer } from '../hooks/useTimer';
+import { MapaRastreio } from './MapaRastreio';
 
 interface DashboardProps {
   entregas: Entrega[];
@@ -16,6 +17,7 @@ interface DashboardProps {
   onExcluirEntrega: (id: number) => void;
 }
 
+// O modo 'mapa' foi removido, pois agora está integrado
 type ModoVisualizacao = 'geral' | 'por-entregador' | 'finalizadas';
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -34,14 +36,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const horaAtual = useTimer();
   const { modalState, showConfirm, closeModal } = useModal();
 
-  const entregasACaminho = useMemo(() => entregas.filter(e => e.status === 'Aguardando' || e.status === 'Em Rota'), [entregas]);
-  const entregasFinalizadas = useMemo(() => entregas.filter(e => e.status === 'Entregue' || e.status === 'Cancelado'), [entregas]);
+  const entregasCompletas = useMemo(() => {
+    return entregas.map(entrega => ({
+      ...entrega,
+      cliente: clientes.find(c => c.id === entrega.clienteId),
+      entregador: entregadores.find(e => e.id === entrega.entregadorId)
+    }));
+  }, [entregas, clientes, entregadores]);
+  
+  const entregasACaminho = useMemo(() => entregasCompletas.filter(e => e.status === 'Aguardando' || e.status === 'Em Rota'), [entregasCompletas]);
+  const entregasFinalizadas = useMemo(() => entregasCompletas.filter(e => e.status === 'Entregue' || e.status === 'Cancelado'), [entregasCompletas]);
 
   const entregasPorEntregador = useMemo(() => {
     return entregasACaminho.reduce((acc, entrega) => {
       (acc[entrega.entregadorId] = acc[entrega.entregadorId] || []).push(entrega);
       return acc;
-    }, {} as Record<number, Entrega[]>);
+    }, {} as Record<number, (Entrega & {cliente?: Cliente, entregador?: Entregador})[]>);
   }, [entregasACaminho]);
 
   const entregasFinalizadasFiltradas = useMemo(() => {
@@ -78,9 +88,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     showConfirm('Confirmar Exclusão', `Tem certeza que deseja excluir a entrega #${entrega.numeroPedido}?`, () => onExcluirEntrega(entrega.id));
   };
 
-  const renderEntregaCard = (entrega: Entrega) => {
-    const cliente = clientes.find(c => c.id === entrega.clienteId);
-    const entregador = entregadores.find(e => e.id === entrega.entregadorId);
+  const renderEntregaCard = (entrega: Entrega & {cliente?: Cliente, entregador?: Entregador}) => {
     const statusInfo = {
         Aguardando: { cor: 'border-yellow-500', texto: 'text-yellow-400' },
         'Em Rota': { cor: 'border-blue-500', texto: 'text-blue-400' },
@@ -98,10 +106,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <div className="flex items-center gap-2 text-sm text-gray-400"><Clock size={16} /><span>{formatarHora(new Date(entrega.dataHora))}</span></div>
             </div>
             <div className="border-t border-b border-gray-700 py-3 space-y-2">
-                <div className="flex items-center gap-3"><User size={16} className="text-gray-500"/> <span className="text-gray-200">{cliente?.nome || 'Cliente não encontrado'}</span></div>
-                <div className="flex items-center gap-3"><MapPin size={16} className="text-gray-500"/> <span className="text-gray-300">{cliente?.ruaNumero}, {cliente?.bairro}</span></div>
-                {cliente?.telefone && <div className="flex items-center gap-3"><Phone size={16} className="text-gray-500"/> <span className="text-gray-300">{cliente.telefone}</span></div>}
-                <div className="flex items-center gap-3"><Truck size={16} className="text-gray-500"/> <span className="text-gray-300">Entregador: {entregador?.nome || 'N/A'}</span></div>
+                <div className="flex items-center gap-3"><User size={16} className="text-gray-500"/> <span className="text-gray-200">{entrega.cliente?.nome || 'Cliente não encontrado'}</span></div>
+                <div className="flex items-center gap-3"><MapPin size={16} className="text-gray-500"/> <span className="text-gray-300">{entrega.cliente?.ruaNumero}, {entrega.cliente?.bairro}</span></div>
+                {entrega.cliente?.telefone && <div className="flex items-center gap-3"><Phone size={16} className="text-gray-500"/> <span className="text-gray-300">{entrega.cliente.telefone}</span></div>}
+                <div className="flex items-center gap-3"><Truck size={16} className="text-gray-500"/> <span className="text-gray-300">Entregador: {entrega.entregador?.nome || 'N/A'}</span></div>
             </div>
             <div className="grid grid-cols-3 gap-4 text-center">
                 <div><p className="text-xs text-gray-400">Pedido</p><p className="font-semibold text-white">{formatarValor(entrega.valorTotalPedido)}</p></div>
@@ -124,15 +132,35 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div className="space-y-4">{entregasACaminho.length > 0 ? entregasACaminho.map(renderEntregaCard) : <p className="text-center text-gray-500 py-10">Nenhuma entrega em andamento.</p>}</div>
     );
     
+    // *** ALTERAÇÃO PRINCIPAL AQUI ***
     const renderPorEntregador = () => {
         if (entregadoresAtivos.length === 0) return <div className="bg-gray-800 rounded-lg p-8 text-center text-gray-400">Nenhuma entrega em andamento.</div>;
+        
+        const entregadorSelecionado = entregadores.find(e => e.id === entregadorAtivoId);
         const entregasDoEntregadorAtivo = entregasPorEntregador[entregadorAtivoId || 0] || [];
+
         return (
             <div>
                 <div className="mb-4 p-1 bg-gray-900/50 rounded-lg flex flex-wrap gap-1">
                     {entregadoresAtivos.map(e => <button key={e.id} onClick={() => setEntregadorAtivoId(e.id)} className={`flex-1 px-3 py-2 rounded-md font-medium text-sm transition-colors ${entregadorAtivoId === e.id ? 'bg-red-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}> {e.nome} ({entregasPorEntregador[e.id].length})</button>)}
                 </div>
-                <div className="space-y-4">{entregasDoEntregadorAtivo.length > 0 ? entregasDoEntregadorAtivo.map(renderEntregaCard) : <p className="text-center text-gray-500 py-10">Este entregador não possui entregas ativas.</p>}</div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Coluna do Mapa */}
+                    <div className="lg:sticky lg:top-24 h-[450px] lg:h-auto">
+                      <h3 className="text-lg font-semibold mb-3 text-white">Localização em Tempo Real</h3>
+                      <MapaRastreio entregador={entregadorSelecionado || null} />
+                    </div>
+
+                    {/* Coluna das Entregas */}
+                    <div className="space-y-4">
+                       <h3 className="text-lg font-semibold text-white">Entregas de {entregadorSelecionado?.nome}</h3>
+                       {entregasDoEntregadorAtivo.length > 0 
+                         ? entregasDoEntregadorAtivo.map(renderEntregaCard) 
+                         : <p className="text-center text-gray-500 py-10">Este entregador não possui entregas ativas.</p>
+                       }
+                    </div>
+                </div>
             </div>
         );
     };

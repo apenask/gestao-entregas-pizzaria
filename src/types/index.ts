@@ -2,6 +2,10 @@ export interface Entregador {
   id: number;
   nome: string;
   email: string;
+  // Adicione os campos de localização
+  latitude?: number;
+  longitude?: number;
+  ultimo_update?: string;
 }
 
 export interface Cliente {
@@ -32,7 +36,7 @@ export interface Entrega {
   clienteId: number;
   cliente?: Cliente;
   entregadorId: number;
-  entregador?: string;
+  entregador?: Entregador; // Alterado para o tipo Entregador para acesso fácil
   formaPagamento: 'Dinheiro' | 'Pix' | 'Cartão de Débito' | 'Cartão de Crédito';
   valorTotalPedido: number;
   valorCorrida: number;
@@ -42,7 +46,6 @@ export interface Entrega {
   duracaoEntrega?: number;
 }
 
-// DEFINIÇÃO CORRIGIDA E UNIFICADA
 export type TelaAtiva = 'dashboard' | 'relatorios' | 'entregadores' | 'clientes' | 'perfil' | 'aprovacoes';
 
 export interface AuthContextType {
