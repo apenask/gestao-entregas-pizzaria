@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Truck, Clock, MapPin, Phone, LogOut, Timer, CheckSquare, Square, Package, Wallet } from 'lucide-react'; 
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Truck, Clock, MapPin, Phone, LogOut, Timer, CheckSquare, Square, Package, Wallet, LocateFixed } from 'lucide-react'; 
 import { Entrega, Cliente } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { formatarValor, formatarHora } from '../utils/calculations';
@@ -12,6 +12,8 @@ interface EntregadorDashboardProps {
   onAtualizarStatus: (id: number, status: 'Em Rota' | 'Entregue', dataHora?: Date) => void;
 }
 
+type PermissionState = 'prompt' | 'granted' | 'denied';
+
 export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
   entregas,
   clientes,
@@ -21,60 +23,61 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
   const horaAtual = useTimer();
   const [entregasSelecionadas, setEntregasSelecionadas] = useState<Set<number>>(new Set());
   const [erroLocalizacao, setErroLocalizacao] = useState<string | null>(null);
+  const [permissionStatus, setPermissionStatus] = useState<PermissionState>('prompt');
 
-  useEffect(() => {
-    console.log("Iniciando rastreamento para o entregador ID:", usuario?.entregadorId);
-    let watchId: number | null = null;
-
-    if (navigator.geolocation) {
-      console.log("Geolocalização suportada. A iniciar watchPosition...");
-      watchId = navigator.geolocation.watchPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          console.log(`Posição obtida: Lat ${latitude}, Lon ${longitude}`);
-          setErroLocalizacao(null);
-
-          if (usuario?.entregadorId) {
-            console.log(`Enviando atualização para o Supabase para o entregador ${usuario.entregadorId}`);
-            const { error } = await supabase
-              .from('entregadores')
-              .update({ latitude, longitude, ultimo_update: new Date().toISOString() })
-              .eq('id', usuario.entregadorId);
-
-            if (error) {
-              console.error('Erro ao enviar localização para o Supabase:', error);
-              setErroLocalizacao('Não foi possível enviar a sua localização.');
-            } else {
-              console.log("Localização enviada com sucesso!");
-            }
-          } else {
-            console.warn("ID do entregador não encontrado, não é possível enviar a localização.");
-          }
-        },
-        (error) => {
-          console.error("Erro de Geolocalização:", error);
-          if (error.code === error.PERMISSION_DENIED) {
-            setErroLocalizacao("Permissão de localização negada. Ative a localização para continuar.");
-          } else {
-            setErroLocalizacao("Não foi possível obter a sua localização.");
-          }
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-      );
-    } else {
-      console.error("Geolocalização não é suportada neste navegador.");
+  const startWatchingPosition = useCallback(() => {
+    if (!navigator.geolocation) {
       setErroLocalizacao("Geolocalização não é suportada neste navegador.");
+      return;
     }
 
+    console.log("A iniciar watchPosition...");
+    return navigator.geolocation.watchPosition(
+      async (position) => {
+        setPermissionStatus('granted');
+        const { latitude, longitude } = position.coords;
+        console.log(`Posição obtida: Lat ${latitude}, Lon ${longitude}`);
+        setErroLocalizacao(null);
+
+        if (usuario?.entregadorId) {
+          const { error } = await supabase
+            .from('entregadores')
+            .update({ latitude, longitude, ultimo_update: new Date().toISOString() })
+            .eq('id', usuario.entregadorId);
+
+          if (error) {
+            console.error('Erro ao enviar localização para o Supabase:', error);
+            setErroLocalizacao('Não foi possível enviar a sua localização para o servidor.');
+          } else {
+            console.log("Localização enviada com sucesso!");
+          }
+        }
+      },
+      (error) => {
+        console.error("Erro de Geolocalização:", error);
+        if (error.code === error.PERMISSION_DENIED) {
+          setPermissionStatus('denied');
+          setErroLocalizacao("Permissão de localização negada. Ative nas definições do seu navegador/telemóvel.");
+        } else {
+          setErroLocalizacao("Não foi possível obter a sua localização.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    );
+  }, [usuario?.entregadorId]);
+
+  useEffect(() => {
+    // *** ALTERAÇÃO AQUI: 'let' foi mudado para 'const' ***
+    const watchId = startWatchingPosition();
+
     return () => {
-      if (watchId) {
-        console.log("Parando o rastreamento de localização.");
+      if (watchId !== undefined) {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, [usuario?.entregadorId]);
+  }, [startWatchingPosition]);
 
-
+  // ... (resto do código do componente permanece igual) ...
   const entregasCompletas = useMemo(() => {
     return entregas.map((entrega) => ({
       ...entrega,
@@ -191,8 +194,15 @@ export const EntregadorDashboard: React.FC<EntregadorDashboardProps> = ({
       
       <main className="p-4 sm:p-6 space-y-8">
         {erroLocalizacao && (
-            <div className="bg-red-900/80 border border-red-600 text-white text-sm rounded-lg p-4 text-center">
-                <strong>Atenção:</strong> {erroLocalizacao}
+            <div className="bg-red-900/80 border border-red-600 text-white text-sm rounded-lg p-4 text-center flex flex-col items-center gap-3">
+                <strong>Atenção:</strong> 
+                <span>{erroLocalizacao}</span>
+                {permissionStatus === 'denied' && (
+                  <button onClick={startWatchingPosition} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2">
+                    <LocateFixed size={16} />
+                    Tentar Ativar Localização
+                  </button>
+                )}
             </div>
         )}
         <section>
