@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FileText, Users, BarChart3, Settings, UserCheck } from 'lucide-react';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js'; // *** ADICIONADO: Importação do tipo correto ***
 import { Dashboard } from './components/Dashboard';
 import { NovaEntrega } from './components/NovaEntrega';
 import { EditarEntrega } from './components/EditarEntrega';
@@ -15,7 +16,7 @@ import { useAuth } from './hooks/useAuth';
 import { TelaAtiva, Entrega, Entregador, Cliente, Usuario } from './types';
 import { entregaService, entregadorService, clienteService, usuarioService } from './services/database';
 import { calcularDuracaoSegundos } from './utils/calculations';
-import { supabase } from './lib/supabase'; // Importe o supabase client
+import { supabase } from './lib/supabase';
 
 type NovaEntregaDados = {
   numeroPedido: string;
@@ -66,69 +67,76 @@ function AppContent() {
 
     carregarDados();
 
-    const canalDeEntregas = supabase
-      .channel('mudancas_entregas')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'entregas' },
-        (payload) => {
-          console.log('Mudança recebida!', payload);
-          carregarDados();
-        }
-      )
-      .subscribe();
+    // *** ALTERADO: O tipo 'any' foi substituído pelo tipo específico do Supabase ***
+    const handleMudancaNoBanco = (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
+        console.log('Mudança recebida no banco de dados!', payload);
+        carregarDados();
+    };
+
+    const entregasChannel = supabase.channel('entregas').on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, handleMudancaNoBanco).subscribe();
+    const usuariosChannel = supabase.channel('usuarios').on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, handleMudancaNoBanco).subscribe();
+    const clientesChannel = supabase.channel('clientes').on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, handleMudancaNoBanco).subscribe();
+    const entregadoresChannel = supabase.channel('entregadores').on('postgres_changes', { event: '*', schema: 'public', table: 'entregadores' }, handleMudancaNoBanco).subscribe();
 
     return () => {
-      supabase.removeChannel(canalDeEntregas);
+      supabase.removeChannel(entregasChannel);
+      supabase.removeChannel(usuariosChannel);
+      supabase.removeChannel(clientesChannel);
+      supabase.removeChannel(entregadoresChannel);
     };
   }, [isAuthenticated, isGerente, loading]);
 
   const handleGerenciarAprovacao = async (id: number, status: 'aprovado' | 'recusado') => {
     try {
+      const usuarioPendente = usuariosPendentes.find(u => u.id === id);
+      if (!usuarioPendente) return;
+
       await usuarioService.atualizar(id, { status_aprovacao: status });
+
+      if (status === 'recusado' && usuarioPendente.entregadorId) {
+        await entregadorService.deletar(usuarioPendente.entregadorId);
+      }
+      
       setUsuariosPendentes(prev => prev.filter(u => u.id !== id));
-    } catch (error) { console.error(`Erro ao ${status} usuário:`, error); }
+
+    } catch (error) { 
+      console.error(`Erro ao ${status} usuário:`, error); 
+    }
   };
   
   const handleAdicionarEntregador = async (nome: string, email: string) => {
     try {
-      const novoEntregador = await entregadorService.criar({ nome, email });
-      setEntregadores(prev => [...prev, novoEntregador]);
+      await entregadorService.criar({ nome, email });
     } catch (error) { console.error('Erro ao adicionar entregador:', error); }
   };
   
   const handleEditarEntregador = async (id: number, nome: string, email: string) => {
     try {
-      const entregadorAtualizado = await entregadorService.atualizar(id, { nome, email });
-      setEntregadores(prev => prev.map(e => (e.id === id ? entregadorAtualizado : e)));
+      await entregadorService.atualizar(id, { nome, email });
     } catch (error) { console.error('Erro ao editar entregador:', error); }
   };
 
   const handleRemoverEntregador = async (id: number) => {
     try {
       await entregadorService.deletar(id);
-      setEntregadores(prev => prev.filter(e => e.id !== id));
     } catch (error) { console.error('Erro ao remover entregador:', error); }
   };
   
   const handleAdicionarCliente = async (cliente: Omit<Cliente, 'id'>) => {
     try {
-      const novoCliente = await clienteService.criar(cliente);
-      setClientes(prev => [...prev, novoCliente]);
+      await clienteService.criar(cliente);
     } catch (error) { console.error('Erro ao adicionar cliente:', error); }
   };
   
   const handleEditarCliente = async (id: number, dadosCliente: Omit<Cliente, 'id'>) => {
     try {
-      const clienteAtualizado = await clienteService.atualizar(id, dadosCliente);
-      setClientes(prev => prev.map(c => (c.id === id ? clienteAtualizado : c)));
+      await clienteService.atualizar(id, dadosCliente);
     } catch (error) { console.error('Erro ao editar cliente:', error); }
   };
 
   const handleRemoverCliente = async (id: number) => {
     try {
       await clienteService.deletar(id);
-      setClientes(prev => prev.filter(c => c.id !== id));
     } catch (error) { console.error('Erro ao remover cliente:', error); }
   };
   
@@ -143,7 +151,6 @@ function AppContent() {
       let clienteId = dadosEntrega.clienteId;
       if (dadosEntrega.clienteNovo) {
         const novoCliente = await clienteService.criar(dadosEntrega.clienteNovo);
-        setClientes((prev) => [...prev, novoCliente]);
         clienteId = novoCliente.id;
       }
       
@@ -192,7 +199,6 @@ function AppContent() {
     <button onClick={() => setTelaAtiva(tela)} className={`relative px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${telaAtiva === tela ? 'bg-red-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}>
       <Icone size={16} />
       {nome}
-      {/* *** ALTERAÇÃO AQUI: Condição corrigida para ser segura com TypeScript *** */}
       {typeof badge === 'number' && badge > 0 && (
         <span className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
           {badge}
